@@ -1,0 +1,17 @@
+# Lista blanca: el repositorio remoto solo publica las plantillas y la
+# documentación. Todo el contenido de las materias queda solo en local.
+/*
+!/.gitignore
+!/README.md
+!/AGENTS.md
+!/_plantillas/
+
+# Dentro de las plantillas, ignorar artefactos de Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Archivos temporales del sistema
+.DS_Store
+Thumbs.db
