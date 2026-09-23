@@ -31,7 +31,7 @@ forma definitiva.
   crearlo.
 
 ```bash
-.venv/bin/python <materia>/<tarea>/generar_documento.py
+.venv/bin/python materias/<materia>/<tarea>/generar_documento.py
 ```
 
 ## Uso básico
@@ -45,7 +45,7 @@ import sys
 from pathlib import Path
 
 AQUI = Path(__file__).resolve().parent
-sys.path.insert(0, str(AQUI.parents[1] / "_plantillas"))
+sys.path.insert(0, str(AQUI.parents[2] / "_plantillas"))  # materias/<materia>/<tarea>/
 from apa_docx import *
 
 CAP = AQUI / "capturas"

@@ -6,6 +6,7 @@
 !/AGENTS.md
 !/.env.example
 !/requirements.txt
+!/LICENSE
 !/_plantillas/
 
 # Dentro de las plantillas, ignorar artefactos de Python

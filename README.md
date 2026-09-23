@@ -11,6 +11,33 @@ Kit para organizar y generar tareas académicas con ayuda de un agente de IA (Cl
 
 Este repositorio es **público** y solo contiene el kit. El contenido de las materias queda en local (está en `.gitignore`) y se respalda aparte, en un repositorio **privado** (ver [Respaldo](#respaldo-de-las-materias)).
 
+## Estructura del repositorio
+
+```
+./                         ← raíz del repositorio (donde lo clonaste)
+├── README.md              ← este archivo
+├── AGENTS.md              ← instrucciones para el agente de IA
+├── LICENSE
+├── .env.example           ← plantilla del .env (el .env real no se sube)
+├── requirements.txt
+├── _plantillas/           ← EL KIT: plantillas y herramientas (público)
+│   ├── tareas.py          ← comando para crear materias, tareas, PDF y respaldo
+│   ├── apa_docx.py        ← plantilla APA 7 para los .docx
+│   ├── config.py          ← lee el .env
+│   ├── materia/           ← molde de una materia (README.md)
+│   └── tarea/             ← molde de una tarea (TAREA.md, generar_documento.py)
+└── materias/              ← TU CONTENIDO (privado, nunca se sube aquí)
+    └── <materia>/         ← p. ej. sgbd1/
+        ├── README.md      ← docente, plataforma, formato y reglas de entrega
+        └── <tarea>/       ← p. ej. A15_Procedimientos_Almacenados/
+```
+
+**Dónde crear una materia:** siempre en `materias/`, en la raíz del repositorio, al mismo nivel que `_plantillas/` y nunca dentro de ella. No hace falta crearla a mano: `tareas.py materia` la pone en su sitio. `materias/` se crea sola la primera vez.
+
+- `_plantillas/` solo contiene moldes y herramientas; nunca guarda tareas.
+- `materias/` está en `.gitignore`: nada de lo que haya dentro llega al repositorio público. Se guarda en el respaldo privado.
+- Cada materia tiene un `README.md` con su ficha (docente, periodo, plataforma de entrega, formato que pide el docente y nomenclatura). Rellénalo al crear la materia: el agente lo lee antes de cada tarea, y sus reglas prevalecen sobre el formato por defecto.
+
 ## Instalación
 
 ### Requisitos del sistema
@@ -42,8 +69,8 @@ Todos los comandos se ejecutan desde la raíz con `.venv/bin/python _plantillas/
 | Comando | Qué hace |
 |---|---|
 | `verificar` | Comprueba `.env`, dependencias de Python, LibreOffice y que el repo público no contenga materias. |
-| `materia <carpeta> "<Nombre>"` | Crea la carpeta de una materia con su `README.md`. |
-| `tarea <materia> <código> "<Título>"` | Crea la carpeta de una tarea (ver abajo). El tipo se deduce de la letra: A = actividad, P = práctica, E = evaluación. |
+| `materia <carpeta> "<Nombre>"` | Crea `materias/<carpeta>/` con su `README.md`. `<carpeta>` es solo el nombre, en minúsculas con guiones. |
+| `tarea <materia> <código> "<Título>"` | Crea `materias/<materia>/<CÓDIGO>_<Título>/` (ver abajo). El tipo se deduce de la letra: A = actividad, P = práctica, E = evaluación. |
 | `pdf <archivo.docx \| carpeta>` | Convierte a `.pdf` con LibreOffice, con protecciones contra documentos que lo cuelgan. |
 | `respaldo ["mensaje"]` | Guarda todas las materias en el repositorio privado de respaldo. |
 | `restaurar` | En un equipo nuevo, recupera las materias desde el repositorio privado. |
@@ -55,7 +82,7 @@ Todos los comandos se ejecutan desde la raíz con `.venv/bin/python _plantillas/
 ```
 
 ```
-sgbd1/A15_Procedimientos_Almacenados/
+materias/sgbd1/A15_Procedimientos_Almacenados/
   TAREA.md                 ← ficha: fecha, rúbrica, qué se entrega, formato, notas
   enunciado/               ← enunciado y RÚBRICA del docente (PDF, DOCX...)
   capturas/                ← evidencia real
@@ -64,8 +91,8 @@ sgbd1/A15_Procedimientos_Almacenados/
 
 1. Deja el enunciado **y la rúbrica** en `enunciado/`. Sin rúbrica, el agente no puede garantizar que el entregable cubra lo que se evalúa: si no la hay, indícalo en `TAREA.md` con los criterios que el docente haya dado.
 2. Completa `TAREA.md`.
-3. Pide al agente: *"lee AGENTS.md y haz la tarea sgbd1/A15_Procedimientos_Almacenados"*. El agente arma el documento criterio por criterio a partir de la rúbrica y rellena en `TAREA.md` la columna "Dónde se cumple".
-4. Genera el PDF: `.venv/bin/python _plantillas/tareas.py pdf sgbd1/A15_Procedimientos_Almacenados`.
+3. Pide al agente: *"lee AGENTS.md y haz la tarea materias/sgbd1/A15_Procedimientos_Almacenados"*. El agente arma el documento criterio por criterio a partir de la rúbrica y rellena en `TAREA.md` la columna "Dónde se cumple".
+4. Genera el PDF: `.venv/bin/python _plantillas/tareas.py pdf materias/sgbd1/A15_Procedimientos_Almacenados`.
 
 ### Respaldo de las materias
 
@@ -97,6 +124,10 @@ La plantilla [`_plantillas/apa_docx.py`](_plantillas/apa_docx.py) ya implementa 
 ### Excepción: actividades prácticas/experimentales
 
 Para actividades **prácticas o experimentales** (instalación de software, laboratorios, ejercicios de ejecución en un entorno real, etc.), **no se asume este formato por defecto**. El formato de entrega se indica en `TAREA.md`; si no está, el agente debe preguntarlo antes de generar nada.
+
+## Licencia
+
+El kit se distribuye bajo licencia [MIT](LICENSE). El contenido de las materias no forma parte de este repositorio.
 
 ## Nota
 

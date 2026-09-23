@@ -4,7 +4,7 @@
 Uso (desde la raíz del repositorio):
     python _plantillas/tareas.py verificar
     python _plantillas/tareas.py materia <carpeta> "<Nombre de la materia>"
-    python _plantillas/tareas.py tarea <carpeta-materia> <codigo> "<Título>" [--tipo T]
+    python _plantillas/tareas.py tarea <materia> <codigo> "<Título>" [--tipo T]
     python _plantillas/tareas.py pdf <archivo.docx | carpeta>
     python _plantillas/tareas.py respaldo ["mensaje"]
     python _plantillas/tareas.py restaurar
@@ -12,7 +12,10 @@ Uso (desde la raíz del repositorio):
 Ejemplos:
     python _plantillas/tareas.py materia programacion-web-2 "Programación Web 2"
     python _plantillas/tareas.py tarea sgbd1 A15 "Procedimientos almacenados"
-    python _plantillas/tareas.py pdf sgbd1/A15_Procedimientos_Almacenados
+    python _plantillas/tareas.py pdf materias/sgbd1/A15_Procedimientos_Almacenados
+
+Las materias se crean siempre dentro de materias/; <materia> es solo el nombre
+de su carpeta (sgbd1), no la ruta.
 """
 import argparse
 import datetime
@@ -30,6 +33,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from config import ARCHIVO_ENV, RAIZ, ConfigError, cargar, cargar_o_salir  # noqa: E402
 
 PLANTILLAS = RAIZ / "_plantillas"
+MATERIAS = RAIZ / "materias"
 TIPOS = {
     "actividad": "Actividad (A)",
     "practica": "Práctico-experimental (P)",
@@ -126,7 +130,7 @@ def cmd_verificar(_args) -> None:
     informe(bool(soffice), soffice or "no instalado: sin él no se generan los PDF")
 
     print("Repositorio público")
-    permitidos = (".gitignore", ".env.example", "README.md", "AGENTS.md",
+    permitidos = (".gitignore", ".env.example", "README.md", "AGENTS.md", "LICENSE",
                   "requirements.txt", "_plantillas/")
     rastreados = git("ls-files", capturar=True).stdout.splitlines()
     fuera = [f for f in rastreados if not f.startswith(permitidos)]
@@ -138,24 +142,28 @@ def cmd_verificar(_args) -> None:
 
 def cmd_materia(args) -> None:
     cargar_o_salir()
-    destino = RAIZ / args.carpeta
+    if "/" in args.carpeta or "\\" in args.carpeta:
+        sys.exit("Indica solo el nombre de la carpeta (p. ej. sgbd2); se crea dentro de materias/.")
+    destino = MATERIAS / args.carpeta
     if destino.exists():
-        sys.exit(f"Ya existe: {args.carpeta}/")
-    destino.mkdir()
+        sys.exit(f"Ya existe: materias/{args.carpeta}/")
+    destino.mkdir(parents=True)
     (destino / "README.md").write_text(
         rellenar(PLANTILLAS / "materia" / "README.md", materia_nombre=args.nombre),
         encoding="utf-8",
     )
-    print(f"Materia creada: {args.carpeta}/")
-    print("  Completa en su README.md el docente y las reglas propias de la materia.")
+    print(f"Materia creada: materias/{args.carpeta}/")
+    print("  Completa en su README.md el docente, la plataforma y las reglas de entrega.")
 
 
 def cmd_tarea(args) -> None:
     cargar_o_salir()
-    carpeta_materia = RAIZ / args.materia
+    nombre_carpeta = Path(args.materia).name  # admite "sgbd1" o "materias/sgbd1"
+    carpeta_materia = MATERIAS / nombre_carpeta
     if not carpeta_materia.is_dir():
-        sys.exit(f"No existe la materia '{args.materia}'. Créala primero con: "
-                 f"tareas.py materia {args.materia} \"Nombre\"")
+        existentes = ", ".join(sorted(p.name for p in MATERIAS.iterdir() if p.is_dir())) if MATERIAS.is_dir() else "ninguna"
+        sys.exit(f"No existe la materia '{nombre_carpeta}' en materias/ (hay: {existentes}).\n"
+                 f"  Créala con: tareas.py materia {nombre_carpeta} \"Nombre\"")
     codigo = args.codigo.upper()
     tipo = args.tipo or tipo_por_codigo(codigo)
     base = f"{codigo}_{slug_titulo(args.titulo)}"

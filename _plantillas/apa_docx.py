@@ -12,7 +12,7 @@ Uso típico en el script de una actividad (lo genera `tareas.py tarea`):
     import sys
     from pathlib import Path
     AQUI = Path(__file__).resolve().parent
-    sys.path.insert(0, str(AQUI.parents[1] / "_plantillas"))
+    sys.path.insert(0, str(AQUI.parents[2] / "_plantillas"))  # materias/<materia>/<tarea>/
     from apa_docx import *
 
     salida = AQUI / nombre_entregable("A15_Titulo_Corto")   # + sufijo del .env

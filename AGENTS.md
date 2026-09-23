@@ -14,25 +14,30 @@ formato por defecto de los documentos.
 ## Estructura
 
 ```
-<materia>/                     carpeta en minúsculas con guiones
-  README.md                    reglas propias de la materia + tabla de estado
-  <CODIGO>_<Titulo_Corto>/     una carpeta por tarea (A15_..., P2_..., E1_...)
-    TAREA.md                   ficha de la tarea: LEER PRIMERO
-    enunciado/                 enunciado y rúbrica del docente (PDF, DOCX, archivos base)
-    capturas/                  evidencia real (nunca simulada)
-    generar_documento.py       script que produce el entregable
-    <CODIGO>_<Titulo_Corto>_<SUFIJO_ARCHIVOS>.docx / .pdf   entregables finales
+_plantillas/                       el kit: moldes y herramientas. NUNCA guardar tareas aquí
+materias/                          todo el contenido, al mismo nivel que _plantillas/
+  <materia>/                       carpeta en minúsculas con guiones
+    README.md                      ficha: docente, plataforma, formato, reglas + tabla de estado
+    <CODIGO>_<Titulo_Corto>/       una carpeta por tarea (A15_..., P2_..., E1_...)
+      TAREA.md                     ficha de la tarea: LEER PRIMERO
+      enunciado/                   enunciado y rúbrica del docente (PDF, DOCX, archivos base)
+      capturas/                    evidencia real (nunca simulada)
+      generar_documento.py         script que produce el entregable
+      <CODIGO>_<Titulo_Corto>_<SUFIJO_ARCHIVOS>.docx / .pdf   entregables finales
 ```
 
-Las carpetas se crean con `_plantillas/tareas.py materia|tarea`. Las carpetas
-antiguas no siguen del todo esta estructura; no reorganizarlas sin pedirlo.
+Las materias y tareas se crean solo con `_plantillas/tareas.py materia|tarea`,
+que las pone en `materias/`; no crear carpetas de materias en otro sitio. Las
+tareas antiguas no siguen del todo esta estructura; no reorganizarlas sin pedirlo.
 
 ## Cómo resolver una tarea
 
-Cuando el usuario pida "haz la tarea <materia>/<carpeta>" (o similar):
+Cuando el usuario pida "haz la tarea materias/<materia>/<carpeta>" (o similar):
 
 1. Leer `TAREA.md` y **todo** el contenido de `enunciado/`, completo.
-2. Leer `README.md` de la materia: sus reglas prevalecen sobre las de la raíz.
+2. Leer `README.md` de la materia (docente, formato, nomenclatura, reglas): sus
+   reglas prevalecen sobre las de la raíz. Si sus campos están vacíos, se aplica
+   el formato por defecto.
 3. **Rúbrica.** Localizarla (en `enunciado/` o en `TAREA.md`) y extraer cada
    criterio con su puntaje. El documento se genera a partir de ella:
    - cada criterio debe quedar cubierto por al menos una sección concreta;

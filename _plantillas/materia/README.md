@@ -1,14 +1,19 @@
 # {materia_nombre}
 
-- **Docente:** <!-- nombre -->
-- **Periodo:** <!-- p. ej. 2026-II -->
+| | |
+|---|---|
+| **Docente** | <!-- nombre --> |
+| **Periodo** | <!-- p. ej. 2026-II --> |
+| **Plataforma de entrega** | <!-- Moodle, Teams, correo... --> |
+| **Formato que pide el docente** | <!-- p. ej. "siempre PDF", "portada institucional con logo", "máximo 5 páginas". Vacío = formato por defecto del repositorio --> |
+| **Nomenclatura de archivos** | <!-- solo si el docente exige una distinta a CODIGO_Titulo_Sufijo --> |
 
 ## Reglas propias de la materia
 
 <!--
-Todo lo que el docente exige siempre y que difiere del formato por defecto
-del repositorio (plantilla propia, entrega en otra plataforma, extensión
-mínima, nomenclatura de archivos...). Si no hay nada, déjalo vacío.
+Cualquier otra exigencia fija del docente que no encaje arriba: dónde se
+publican los enunciados, si acepta entregas tarde, si pide video, etc.
+Estas reglas prevalecen sobre el formato por defecto del repositorio.
 -->
 
 ## Estado de las entregas
