@@ -1,4 +1,4 @@
-# istpet-publico
+# rubric-driven
 
 ## Propósito
 
