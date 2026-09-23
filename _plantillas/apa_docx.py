@@ -3,16 +3,23 @@
 Plantilla reutilizable para generar informes .docx en normas APA 7,
 monocromáticos (texto e imágenes en blanco y negro).
 
-Uso típico en el script de una actividad:
+Los datos del estudiante (portada y sufijo de archivos) se leen del .env de
+la raíz del repositorio; sin él, importar este módulo termina con un error
+que explica cómo crearlo.
 
-    import sys, os
-    sys.path.insert(0, os.path.expanduser("~/Documents/materias/_plantillas"))
+Uso típico en el script de una actividad (lo genera `tareas.py tarea`):
+
+    import sys
+    from pathlib import Path
+    AQUI = Path(__file__).resolve().parent
+    sys.path.insert(0, str(AQUI.parents[1] / "_plantillas"))
     from apa_docx import *
 
+    salida = AQUI / nombre_entregable("A15_Titulo_Corto")   # + sufijo del .env
     doc, figura, tabla = nuevo_documento(
         titulo="Título del Informe",
         materia="Nombre de la Materia",
-        salida="/ruta/al/archivo/A_algo_Bano_Joseph.docx",
+        salida=salida,
     )
 
     titulo(doc, "Introducción", 2)
@@ -27,6 +34,7 @@ Uso típico en el script de una actividad:
 
 Ver también PLANTILLA_README.md en esta misma carpeta.
 """
+import datetime
 import os
 from docx import Document
 from docx.shared import Pt, Inches, RGBColor
@@ -35,14 +43,32 @@ from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
 
+from config import cargar_o_salir
+
 NEGRO = RGBColor(0, 0, 0)
 
 # --------------------------------------------------------------------------
-# Datos fijos del estudiante (evita retipearlos en cada script)
+# Datos del estudiante: se leen del .env de la raíz del repositorio
 # --------------------------------------------------------------------------
-NOMBRE_ESTUDIANTE = "Joseph Andrés Baño Naranjo"
-INSTITUCION = "Instituto Tecnológico Mayor Pedro Traversari"
-CARRERA = "Carrera de Desarrollo de Software"
+_CONFIG = cargar_o_salir()
+NOMBRE_ESTUDIANTE = _CONFIG["NOMBRE_ESTUDIANTE"]
+INSTITUCION = _CONFIG["INSTITUCION"]
+CARRERA = _CONFIG["CARRERA"]
+SUFIJO_ARCHIVOS = _CONFIG["SUFIJO_ARCHIVOS"]
+
+_MESES = ("enero", "febrero", "marzo", "abril", "mayo", "junio", "julio",
+          "agosto", "septiembre", "octubre", "noviembre", "diciembre")
+
+
+def fecha_hoy():
+    """Fecha de hoy en formato de portada: '23 de septiembre de 2026'."""
+    hoy = datetime.date.today()
+    return f"{hoy.day} de {_MESES[hoy.month - 1]} de {hoy.year}"
+
+
+def nombre_entregable(base, extension=".docx"):
+    """'A15_Titulo' -> 'A15_Titulo_<SUFIJO_ARCHIVOS>.docx'."""
+    return f"{base}_{SUFIJO_ARCHIVOS}{extension}"
 
 
 # --------------------------------------------------------------------------
@@ -324,7 +350,7 @@ def convertir_a_grises(carpeta_capturas, patrones=("*.png", "*.jpg", "*.jpeg")):
 # --------------------------------------------------------------------------
 # Punto de entrada: crea el documento con portada y estilos ya aplicados
 # --------------------------------------------------------------------------
-def nuevo_documento(*, titulo, materia, salida, fecha="24 de agosto de 2026",
+def nuevo_documento(*, titulo, materia, salida, fecha=None,
                      carpeta_capturas=None, nombre=NOMBRE_ESTUDIANTE,
                      institucion=INSTITUCION, carrera=CARRERA):
     """Crea el Document(), aplica estilos APA/monocromáticos, arma la
@@ -334,6 +360,9 @@ def nuevo_documento(*, titulo, materia, salida, fecha="24 de agosto de 2026",
     carpeta de capturas (por defecto: carpeta 'capturas' junto a `salida`).
     Guardar al final con doc.save(salida).
     """
+    salida = os.fspath(salida)
+    if fecha is None:
+        fecha = fecha_hoy()
     if carpeta_capturas is None:
         carpeta_capturas = os.path.join(os.path.dirname(os.path.abspath(salida)), "capturas")
 
@@ -371,5 +400,6 @@ def nuevo_documento(*, titulo, materia, salida, fecha="24 de agosto de 2026",
 
 
 def guardar_documento(doc, salida):
+    salida = os.fspath(salida)
     doc.save(salida)
     print("Documento generado:", salida)

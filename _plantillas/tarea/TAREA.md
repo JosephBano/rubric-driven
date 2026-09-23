@@ -12,6 +12,17 @@ Pega aquí el texto del enunciado tal como lo dio el docente,
 o deja el PDF/DOCX original en la carpeta enunciado/ y escribe "ver enunciado/".
 -->
 
+## Rúbrica
+
+<!--
+OBLIGATORIA: el documento se genera a partir de ella. Deja el archivo de la
+rúbrica en enunciado/ o pega aquí sus criterios con su puntaje. Si el docente
+no dio rúbrica, escribe "sin rúbrica" y los criterios que te dijo en clase.
+-->
+
+| Criterio | Puntaje | Dónde se cumple |
+|---|---|---|
+
 ## Qué se entrega
 
 <!-- Marca lo que pide el docente; borra lo que no aplique. -->

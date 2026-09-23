@@ -24,27 +24,32 @@ forma definitiva.
 
 ## Requisitos
 
-Un entorno de Python con `python-docx` y `Pillow` instalados. Ya existe uno
-en `arquitectura-computacional/.venv`; se puede reutilizar desde cualquier
-materia:
+- El `.venv` de la raíz del repositorio, con `requirements.txt` instalado (ver
+  README.md de la raíz).
+- El archivo `.env` de la raíz con los datos del estudiante. `apa_docx` los lee
+  al importarse; si falta, el script termina con un mensaje que explica cómo
+  crearlo.
 
 ```bash
-arquitectura-computacional/.venv/bin/python tu_script.py
+.venv/bin/python <materia>/<tarea>/generar_documento.py
 ```
 
 ## Uso básico
 
-```python
-import os, sys
-sys.path.insert(0, os.path.expanduser("~/Documents/materias/_plantillas"))
-from apa_docx import (
-    nuevo_documento, guardar_documento, titulo, parrafo, vinieta, codigo,
-    referencia,
-)
+`tareas.py tarea` ya crea un `generar_documento.py` con este encabezado. La
+ruta a la plantilla es relativa, así que funciona en cualquier equipo donde se
+clone el repositorio:
 
-BASE = os.path.dirname(os.path.abspath(__file__))
-CAP = os.path.join(BASE, "capturas")
-SALIDA = os.path.join(BASE, "A_algo_Bano_Joseph.docx")
+```python
+import sys
+from pathlib import Path
+
+AQUI = Path(__file__).resolve().parent
+sys.path.insert(0, str(AQUI.parents[1] / "_plantillas"))
+from apa_docx import *
+
+CAP = AQUI / "capturas"
+SALIDA = AQUI / nombre_entregable("A15_Titulo_Corto")  # añade el sufijo del .env
 
 # Las capturas se insertan tal cual: conservan su color original.
 
@@ -53,7 +58,7 @@ doc, figura, tabla = nuevo_documento(
     materia="Nombre de la Materia",
     salida=SALIDA,
     carpeta_capturas=CAP,        # opcional; por defecto es "capturas/" junto a SALIDA
-    fecha="24 de agosto de 2026",  # opcional; cambiar según la entrega
+    fecha="24 de agosto de 2026",  # opcional; por defecto, la fecha de hoy
 )
 
 titulo(doc, "Introducción", 2)
@@ -80,8 +85,8 @@ guardar_documento(doc, SALIDA)
 `nuevo_documento()` ya arma la portada (título, nombre, institución, carrera,
 materia, fecha — sin tablas ni logos), aplica Times New Roman 12 a doble
 espacio, márgenes de 1 pulgada y numeración de página, y repite el título en
-negrita al inicio del cuerpo. Los datos del estudiante están fijos en el
-módulo (`NOMBRE_ESTUDIANTE`, `INSTITUCION`, `CARRERA`) — pasar `nombre=`,
+negrita al inicio del cuerpo. Los datos del estudiante salen del `.env`
+(`NOMBRE_ESTUDIANTE`, `INSTITUCION`, `CARRERA`); pasar `nombre=`,
 `institucion=` o `carrera=` a `nuevo_documento()` solo si hay que
 sobreescribirlos para un caso puntual.
 
@@ -100,6 +105,8 @@ sobreescribirlos para un caso puntual.
 | `convertir_a_grises(carpeta)` | **Desaconsejada.** Convierte las capturas de una carpeta a escala de grises, reescribiéndolas en el sitio (respalda antes en `originales/`). Las figuras van a color: no usar en documentos nuevos. |
 | `leer_fuente(ruta)` | Lee un archivo de texto/código completo (útil para volcar código fuente en un Anexo). |
 | `guardar_documento(doc, salida)` | Equivale a `doc.save(salida)` con un mensaje de confirmación. |
+| `nombre_entregable(base, extension=".docx")` | `"A15_Titulo"` → `"A15_Titulo_<SUFIJO_ARCHIVOS>.docx"`. |
+| `fecha_hoy()` | Fecha de hoy en formato de portada: `"23 de septiembre de 2026"`. |
 
 ## Cuándo NO usar esta plantilla
 
@@ -109,24 +116,8 @@ raíz). No asumir este estilo APA por defecto en esos casos.
 
 ---
 
-# Crear materias y tareas (`nuevo.py`)
+# Crear materias y tareas (`tareas.py`)
 
-```bash
-# Nueva materia (crea la carpeta y su README.md)
-python _plantillas/nuevo.py materia programacion-web-2 "Programación Web 2"
-
-# Nueva tarea (el tipo se deduce de la letra: A=actividad, P=práctica, E=evaluación)
-python _plantillas/nuevo.py tarea sgbd1 A15 "Procedimientos almacenados"
-```
-
-La tarea queda así, y se añade como `pendiente` en la tabla del README de la materia:
-
-```
-sgbd1/A15_Procedimientos_Almacenados/
-  TAREA.md      ← completar: fecha, qué se entrega, formato, notas
-  enunciado/    ← dejar aquí el PDF/DOCX del docente y la rúbrica
-  capturas/     ← evidencia real
-```
-
-Después basta con pedir al agente de IA (Claude, Codex, etc.): *"haz la tarea sgbd1/A15_Procedimientos_Almacenados"*.
-Las reglas que sigue el agente están en `AGENTS.md` de la raíz.
+La referencia completa de comandos (`verificar`, `materia`, `tarea`, `pdf`,
+`respaldo`) está en el README.md de la raíz, y las reglas que sigue el agente
+de IA, en `AGENTS.md`.

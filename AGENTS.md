@@ -1,7 +1,15 @@
 # Instrucciones para agentes de IA
 
-Repositorio de tareas académicas (ver `README.md` para datos del estudiante y el
-formato por defecto de los documentos).
+Repositorio de tareas académicas. Ver `README.md` para la instalación y el
+formato por defecto de los documentos.
+
+## Antes de nada
+
+- Debe existir `.env` en la raíz con los datos del estudiante. Si falta, detenerse
+  y pedir al usuario que lo cree (`cp .env.example .env`). **Nunca** escribir
+  datos personales en archivos versionados ni inventarlos.
+- Usar siempre el Python de `.venv/` de la raíz. Si algo falla, empezar por
+  `.venv/bin/python _plantillas/tareas.py verificar`.
 
 ## Estructura
 
@@ -10,35 +18,45 @@ formato por defecto de los documentos).
   README.md                    reglas propias de la materia + tabla de estado
   <CODIGO>_<Titulo_Corto>/     una carpeta por tarea (A15_..., P2_..., E1_...)
     TAREA.md                   ficha de la tarea: LEER PRIMERO
-    enunciado/                 material del docente (PDF, DOCX, rúbrica, archivos base)
+    enunciado/                 enunciado y rúbrica del docente (PDF, DOCX, archivos base)
     capturas/                  evidencia real (nunca simulada)
     generar_documento.py       script que produce el entregable
-    <CODIGO>_<Titulo_Corto>_Bano_Joseph.docx / .pdf   entregables finales
+    <CODIGO>_<Titulo_Corto>_<SUFIJO_ARCHIVOS>.docx / .pdf   entregables finales
 ```
 
-Las carpetas se crean con `_plantillas/nuevo.py` (ver `_plantillas/PLANTILLA_README.md`).
-Las carpetas antiguas no siguen del todo esta estructura; no reorganizarlas sin pedirlo.
+Las carpetas se crean con `_plantillas/tareas.py materia|tarea`. Las carpetas
+antiguas no siguen del todo esta estructura; no reorganizarlas sin pedirlo.
 
 ## Cómo resolver una tarea
 
 Cuando el usuario pida "haz la tarea <materia>/<carpeta>" (o similar):
 
-1. Leer `TAREA.md` y **todo** el contenido de `enunciado/`. Si el enunciado es un
-   PDF, leerlo completo, incluida la rúbrica.
+1. Leer `TAREA.md` y **todo** el contenido de `enunciado/`, completo.
 2. Leer `README.md` de la materia: sus reglas prevalecen sobre las de la raíz.
-3. Formato: lo que diga `TAREA.md` > README de la materia > README de la raíz.
-   - "por defecto" → APA 7 monocromático con `_plantillas/apa_docx.py`.
+3. **Rúbrica.** Localizarla (en `enunciado/` o en `TAREA.md`) y extraer cada
+   criterio con su puntaje. El documento se genera a partir de ella:
+   - cada criterio debe quedar cubierto por al menos una sección concreta;
+   - las secciones y su extensión se reparten según el peso de cada criterio;
+   - si no hay rúbrica ni criterios en `TAREA.md`, **preguntar** antes de generar.
+4. Formato: lo que diga `TAREA.md` > README de la materia > README de la raíz.
+   - "por defecto" → APA 7 con `_plantillas/apa_docx.py`.
    - Práctica/experimental sin formato indicado → **preguntar antes de generar**.
-4. Si falta algo que solo el usuario puede aportar (capturas de su equipo, datos
+5. Si falta algo que solo el usuario puede aportar (capturas de su equipo, datos
    personales, una decisión de enfoque), preguntar en vez de inventarlo.
-5. Generar el documento con un `generar_documento.py` dentro de la carpeta, para
-   poder regenerarlo. Nombre de salida: `<CODIGO>_<Titulo_Corto>_Bano_Joseph`.
-6. Al terminar: actualizar `Estado:` en `TAREA.md` y la fila en la tabla del
-   README de la materia (pendiente → lista / entregada).
+6. Escribir el contenido en el `generar_documento.py` de la carpeta (ya conectado
+   a la plantilla y con el nombre de salida correcto) y ejecutarlo con
+   `.venv/bin/python`. Generar el PDF con `_plantillas/tareas.py pdf <carpeta>`.
+7. Verificar contra la rúbrica: rellenar en `TAREA.md` la columna "Dónde se
+   cumple" de cada criterio, con la sección del documento que lo cubre. Si
+   algún criterio queda sin cubrir, decirlo al usuario.
+8. Al terminar: actualizar `Estado:` en `TAREA.md` y la fila en la tabla del
+   README de la materia (pendiente → lista / entregada), y recordar al usuario
+   ejecutar `_plantillas/tareas.py respaldo`.
 
 ## Recordatorios
 
-- Repositorio público: nada de contraseñas, datos de terceros ni capturas con
-  información privada.
-- Python: reutilizar `arquitectura-computacional/.venv`.
-- Conversión a PDF con LibreOffice: usar `TMPDIR` en disco (el tmpfs de `/tmp` se llena).
+- El repositorio remoto es público y solo contiene el kit: no añadir excepciones
+  al `.gitignore` para materias ni hacer commit de su contenido.
+- Convertir a PDF siempre con `tareas.py pdf` y nunca con `soffice` directo:
+  un `.docx` mal formado puede hacer que LibreOffice llene `/tmp`.
+- Con python-docx, no dejar dos tablas seguidas sin un párrafo entre medias.

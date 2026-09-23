@@ -4,6 +4,8 @@
 !/.gitignore
 !/README.md
 !/AGENTS.md
+!/.env.example
+!/requirements.txt
 !/_plantillas/
 
 # Dentro de las plantillas, ignorar artefactos de Python
