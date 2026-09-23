@@ -9,7 +9,7 @@ Kit para organizar y generar tareas académicas con ayuda de un agente de IA (Cl
 - instrucciones para el agente ([`AGENTS.md`](AGENTS.md)) que le indican cómo leer la tarea y generar el entregable a partir de la rúbrica;
 - una plantilla de Python que produce informes `.docx` en normas APA 7, además de la conversión a `.pdf`.
 
-Este repositorio es **público** y solo contiene el kit. El contenido de las materias queda en local (está en `.gitignore`) y se respalda aparte, en un repositorio **privado** (ver [Respaldo](#respaldo-de-las-materias)).
+Este repositorio es **público** y solo contiene el kit. Las tareas se quedan **solo en local**: `materias/` está en `.gitignore` y nunca se sube. Si quieres conservarlas, haz tú una copia (disco externo, nube...), porque el repositorio no las guarda.
 
 ## Estructura del repositorio
 
@@ -21,12 +21,12 @@ Este repositorio es **público** y solo contiene el kit. El contenido de las mat
 ├── .env.example           ← plantilla del .env (el .env real no se sube)
 ├── requirements.txt
 ├── _plantillas/           ← EL KIT: plantillas y herramientas (público)
-│   ├── tareas.py          ← comando para crear materias, tareas, PDF y respaldo
+│   ├── tareas.py          ← comando para crear materias, tareas y PDF
 │   ├── apa_docx.py        ← plantilla APA 7 para los .docx
 │   ├── config.py          ← lee el .env
 │   ├── materia/           ← molde de una materia (README.md)
 │   └── tarea/             ← molde de una tarea (TAREA.md, generar_documento.py)
-└── materias/              ← TU CONTENIDO (privado, nunca se sube aquí)
+└── materias/              ← TUS TAREAS (solo en local, nunca se suben)
     └── <materia>/         ← p. ej. sgbd1/
         ├── README.md      ← docente, plataforma, formato y reglas de entrega
         └── <tarea>/       ← p. ej. A15_Procedimientos_Almacenados/
@@ -35,7 +35,7 @@ Este repositorio es **público** y solo contiene el kit. El contenido de las mat
 **Dónde crear una materia:** siempre en `materias/`, en la raíz del repositorio, al mismo nivel que `_plantillas/` y nunca dentro de ella. No hace falta crearla a mano: `tareas.py materia` la pone en su sitio. `materias/` se crea sola la primera vez.
 
 - `_plantillas/` solo contiene moldes y herramientas; nunca guarda tareas.
-- `materias/` está en `.gitignore`: nada de lo que haya dentro llega al repositorio público. Se guarda en el respaldo privado.
+- `materias/` está en `.gitignore`: nada de lo que haya dentro llega al repositorio. Solo existe en tu equipo.
 - Cada materia tiene un `README.md` con su ficha (docente, periodo, plataforma de entrega, formato que pide el docente y nomenclatura). Rellénalo al crear la materia: el agente lo lee antes de cada tarea, y sus reglas prevalecen sobre el formato por defecto.
 
 ## Instalación
@@ -60,7 +60,7 @@ cp .env.example .env        # y edítalo con tus datos
 .venv/bin/python _plantillas/tareas.py verificar
 ```
 
-> **El `.env` es obligatorio.** Sin él no se puede crear materias ni tareas ni generar documentos: la herramienta se detiene y explica qué falta. El `.env` contiene los datos de la portada (nombre, institución, carrera), el sufijo que llevan los entregables y, opcionalmente, la URL del repositorio privado de respaldo. No se sube al repositorio.
+> **El `.env` es obligatorio.** Sin él no se puede crear materias ni tareas ni generar documentos: la herramienta se detiene y explica qué falta. El `.env` contiene los datos de la portada (nombre, institución, carrera), y el sufijo que llevan los entregables. No se sube al repositorio.
 
 ## Uso
 
@@ -72,8 +72,6 @@ Todos los comandos se ejecutan desde la raíz con `.venv/bin/python _plantillas/
 | `materia <carpeta> "<Nombre>"` | Crea `materias/<carpeta>/` con su `README.md`. `<carpeta>` es solo el nombre, en minúsculas con guiones. |
 | `tarea <materia> <código> "<Título>"` | Crea `materias/<materia>/<CÓDIGO>_<Título>/` (ver abajo). El tipo se deduce de la letra: A = actividad, P = práctica, E = evaluación. |
 | `pdf <archivo.docx \| carpeta>` | Convierte a `.pdf` con LibreOffice, con protecciones contra documentos que lo cuelgan. |
-| `respaldo ["mensaje"]` | Guarda todas las materias en el repositorio privado de respaldo. |
-| `restaurar` | En un equipo nuevo, recupera las materias desde el repositorio privado. |
 
 ### Flujo de una tarea
 
@@ -93,18 +91,6 @@ materias/sgbd1/A15_Procedimientos_Almacenados/
 2. Completa `TAREA.md`.
 3. Pide al agente: *"lee AGENTS.md y haz la tarea materias/sgbd1/A15_Procedimientos_Almacenados"*. El agente arma el documento criterio por criterio a partir de la rúbrica y rellena en `TAREA.md` la columna "Dónde se cumple".
 4. Genera el PDF: `.venv/bin/python _plantillas/tareas.py pdf materias/sgbd1/A15_Procedimientos_Almacenados`.
-
-### Respaldo de las materias
-
-Las materias no se suben a este repositorio público. `tareas.py respaldo` las guarda en un segundo repositorio git (`.respaldo.git/`, en esta misma carpeta), y si `RESPALDO_REMOTO` está definido en `.env` las sube a ese remoto.
-
-1. Crea un repositorio **privado** vacío en GitHub (p. ej. `materias-privado`).
-2. Pon su URL en `.env`: `RESPALDO_REMOTO="git@github.com:usuario/materias-privado.git"`.
-3. Ejecuta `.venv/bin/python _plantillas/tareas.py respaldo` cada vez que termines una tarea.
-
-No se respaldan los entornos virtuales, `node_modules`, `.env` ni las carpetas que ya tienen su propio repositorio git.
-
-Para recuperar las materias en otro equipo: instala el kit, pon `RESPALDO_REMOTO` en `.env` y ejecuta `.venv/bin/python _plantillas/tareas.py restaurar`.
 
 ## Formato de los documentos y actividades
 

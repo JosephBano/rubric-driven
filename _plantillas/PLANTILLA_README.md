@@ -118,6 +118,5 @@ raíz). No asumir este estilo APA por defecto en esos casos.
 
 # Crear materias y tareas (`tareas.py`)
 
-La referencia completa de comandos (`verificar`, `materia`, `tarea`, `pdf`,
-`respaldo`) está en el README.md de la raíz, y las reglas que sigue el agente
+La referencia completa de comandos (`verificar`, `materia`, `tarea`, `pdf`) está en el README.md de la raíz, y las reglas que sigue el agente
 de IA, en `AGENTS.md`.

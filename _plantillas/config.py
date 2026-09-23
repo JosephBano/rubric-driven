@@ -17,9 +17,6 @@ OBLIGATORIAS = {
     "CARRERA": "carrera que va en la portada",
     "SUFIJO_ARCHIVOS": "sufijo de los entregables, p. ej. Perez_Ana",
 }
-OPCIONALES = {
-    "RESPALDO_REMOTO": "URL del repositorio privado para el respaldo de las materias",
-}
 
 
 class ConfigError(Exception):
@@ -53,8 +50,6 @@ def cargar() -> dict:
     faltan = [f"  - {k}: {desc}" for k, desc in OBLIGATORIAS.items() if not valores.get(k)]
     if faltan:
         raise ConfigError("Faltan datos en .env:\n" + "\n".join(faltan))
-    for clave in OPCIONALES:
-        valores.setdefault(clave, "")
     return valores
 
 

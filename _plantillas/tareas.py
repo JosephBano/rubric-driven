@@ -1,13 +1,11 @@
 #!/usr/bin/env python3
-"""Herramienta del repositorio: materias, tareas, PDF y respaldo.
+"""Herramienta del repositorio: materias, tareas y PDF.
 
 Uso (desde la raíz del repositorio):
     python _plantillas/tareas.py verificar
     python _plantillas/tareas.py materia <carpeta> "<Nombre de la materia>"
     python _plantillas/tareas.py tarea <materia> <codigo> "<Título>" [--tipo T]
     python _plantillas/tareas.py pdf <archivo.docx | carpeta>
-    python _plantillas/tareas.py respaldo ["mensaje"]
-    python _plantillas/tareas.py restaurar
 
 Ejemplos:
     python _plantillas/tareas.py materia programacion-web-2 "Programación Web 2"
@@ -18,7 +16,6 @@ Las materias se crean siempre dentro de materias/; <materia> es solo el nombre
 de su carpeta (sgbd1), no la ruta.
 """
 import argparse
-import datetime
 import importlib.util
 import os
 import re
@@ -40,16 +37,6 @@ TIPOS = {
     "evaluacion": "Evaluación (E)",
     "otro": "Otro",
 }
-
-# Respaldo privado: un segundo repositorio git que comparte esta carpeta como
-# árbol de trabajo pero ignora el .gitignore público (se añade con --force).
-RESPALDO_GIT = RAIZ / ".respaldo.git"
-RESPALDO_EXCLUIR = [
-    ".git/**", ".respaldo.git/**", ".env",
-    "**/.venv/**", "**/venv/**", "**/node_modules/**",
-    "**/__pycache__/**", "**/*.pyc", "**/.playwright-mcp/**", "**/.claude/**",
-    "**/.DS_Store", "**/Thumbs.db", "**/*.pdf.tmp", "**/.~lock.*#",
-]
 
 # LibreOffice: temporales en disco (no en el tmpfs de /tmp) y tope de 2 GB por
 # archivo escrito; un .docx mal formado puede hacer que soffice llene el disco.
@@ -89,13 +76,9 @@ def rellenar(plantilla: Path, **valores) -> str:
     return texto
 
 
-def git(*args, respaldo=False, check=True, capturar=False):
-    base = ["git"]
-    if respaldo:
-        base += [f"--git-dir={RESPALDO_GIT}", f"--work-tree={RAIZ}"]
+def git(*args, check=True, capturar=False):
     return subprocess.run(
-        base + list(args), cwd=RAIZ, check=check, text=True,
-        capture_output=capturar,
+        ["git", *args], cwd=RAIZ, check=check, text=True, capture_output=capturar,
     )
 
 
@@ -114,7 +97,6 @@ def cmd_verificar(_args) -> None:
     try:
         cfg = cargar()
         informe(True, f".env cargado ({cfg['NOMBRE_ESTUDIANTE']})")
-        informe(True, f"respaldo remoto: {cfg['RESPALDO_REMOTO'] or 'no configurado (solo local)'}")
     except ConfigError as e:
         informe(False, str(e).replace("\n", "\n          "))
 
@@ -243,65 +225,6 @@ def cmd_pdf(args) -> None:
     sys.exit(1 if fallos else 0)
 
 
-def cmd_respaldo(args) -> None:
-    cfg = cargar_o_salir()
-    if not RESPALDO_GIT.exists():
-        git("init", "-q", "--bare", str(RESPALDO_GIT))
-        git("config", "core.bare", "false", respaldo=True)
-        print(f"Repositorio de respaldo creado en {RESPALDO_GIT.name}/")
-    # Un clon --bare puede dejar HEAD en otra rama; el respaldo siempre va en main.
-    git("symbolic-ref", "HEAD", "refs/heads/main", respaldo=True)
-
-    # Repositorios git anidados (proyectos con su propio repo) no se copian.
-    anidados = sorted(
-        p.parent.relative_to(RAIZ).as_posix()
-        for p in RAIZ.glob("*/**/.git")
-        if ".venv" not in p.parts and "node_modules" not in p.parts
-    )
-    excluir = RESPALDO_EXCLUIR + [f"{a}/**" for a in anidados]
-    pathspec = ["."] + [f":(exclude,glob){patron}" for patron in excluir]
-    git("add", "--all", "--force", "--", *pathspec, respaldo=True)
-
-    if git("diff", "--cached", "--quiet", respaldo=True, check=False).returncode == 0:
-        print("Respaldo: no hay cambios desde el último respaldo.")
-    else:
-        mensaje = args.mensaje or f"Respaldo {datetime.datetime.now():%Y-%m-%d %H:%M}"
-        git("commit", "-q", "-m", mensaje, respaldo=True)
-        resumen = git("show", "--stat", "--format=%h %s", "HEAD", respaldo=True, capturar=True).stdout
-        print("Respaldo guardado: " + resumen.splitlines()[0])
-        print("  " + resumen.strip().splitlines()[-1].strip())
-    if anidados:
-        print("  Omitidos (tienen su propio repositorio git): " + ", ".join(anidados))
-
-    remoto = cfg["RESPALDO_REMOTO"]
-    if not remoto:
-        print("  Solo local: define RESPALDO_REMOTO en .env para subirlo a un repositorio privado.")
-        return
-    actual = git("remote", "get-url", "origin", respaldo=True, check=False, capturar=True)
-    if actual.returncode != 0:
-        git("remote", "add", "origin", remoto, respaldo=True)
-    elif actual.stdout.strip() != remoto:
-        git("remote", "set-url", "origin", remoto, respaldo=True)
-    git("push", "-q", "-u", "origin", "main", respaldo=True)
-    print(f"  Subido a {remoto}")
-
-
-def cmd_restaurar(_args) -> None:
-    cfg = cargar_o_salir()
-    remoto = cfg["RESPALDO_REMOTO"]
-    if not remoto:
-        sys.exit("Define RESPALDO_REMOTO en .env con la URL del repositorio privado.")
-    if RESPALDO_GIT.exists():
-        sys.exit(f"Ya existe {RESPALDO_GIT.name}/: las materias ya están enlazadas al respaldo.")
-    git("clone", "-q", "--bare", remoto, str(RESPALDO_GIT))
-    git("config", "core.bare", "false", respaldo=True)
-    git("symbolic-ref", "HEAD", "refs/heads/main", respaldo=True)
-    git("checkout", "main", "--", ".", respaldo=True)
-    # El kit (plantillas, README...) se queda en la versión del repo público.
-    git("checkout", "HEAD", "--", ".")
-    print(f"Materias restauradas desde {remoto}")
-
-
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = parser.add_subparsers(dest="accion", required=True)
@@ -321,19 +244,12 @@ def main() -> None:
     p = sub.add_parser("pdf", help="convierte .docx a .pdf con LibreOffice")
     p.add_argument("ruta", help="un archivo .docx o una carpeta (convierte todos sus .docx)")
 
-    p = sub.add_parser("respaldo", help="guarda todas las materias en el repositorio privado")
-    p.add_argument("mensaje", nargs="?", help="mensaje del respaldo (opcional)")
-
-    sub.add_parser("restaurar", help="recupera las materias desde el respaldo privado (equipo nuevo)")
-
     args = parser.parse_args()
     {
         "verificar": cmd_verificar,
         "materia": cmd_materia,
         "tarea": cmd_tarea,
         "pdf": cmd_pdf,
-        "respaldo": cmd_respaldo,
-        "restaurar": cmd_restaurar,
     }[args.accion](args)
 
 

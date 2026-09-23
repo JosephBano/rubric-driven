@@ -55,13 +55,13 @@ Cuando el usuario pida "haz la tarea materias/<materia>/<carpeta>" (o similar):
    cumple" de cada criterio, con la sección del documento que lo cubre. Si
    algún criterio queda sin cubrir, decirlo al usuario.
 8. Al terminar: actualizar `Estado:` en `TAREA.md` y la fila en la tabla del
-   README de la materia (pendiente → lista / entregada), y recordar al usuario
-   ejecutar `_plantillas/tareas.py respaldo`.
+   README de la materia (pendiente → lista / entregada).
 
 ## Recordatorios
 
-- El repositorio remoto es público y solo contiene el kit: no añadir excepciones
-  al `.gitignore` para materias ni hacer commit de su contenido.
+- El repositorio es público y solo contiene el kit; las tareas viven solo en
+  local. No añadir excepciones al `.gitignore` para `materias/` ni hacer commit
+  de su contenido.
 - Convertir a PDF siempre con `tareas.py pdf` y nunca con `soffice` directo:
   un `.docx` mal formado puede hacer que LibreOffice llene `/tmp`.
 - Con python-docx, no dejar dos tablas seguidas sin un párrafo entre medias.
