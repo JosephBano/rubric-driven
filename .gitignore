@@ -8,12 +8,15 @@
 !/requirements.txt
 !/LICENSE
 !/_plantillas/
+!/tests/
+!/.github/
 
-# Dentro de las plantillas, ignorar artefactos de Python
+# Artefactos de Python y copias de seguridad de `tareas.py esqueleto --forzar`
 __pycache__/
 *.pyc
 .venv/
 venv/
+*.py.bak
 
 # Archivos temporales del sistema
 .DS_Store

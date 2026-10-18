@@ -1,10 +1,105 @@
-# Plantilla APA / monocromática (`apa_docx.py`)
+# Plantilla APA 7 (`apa_docx.py`)
 
-Módulo de Python reutilizable para generar informes `.docx` en normas APA 7,
-con el texto monocromático, con el mismo estilo usado en A7, A8 y A14 de
-Arquitectura Computacional. Es el formato **por defecto** descrito en
-`README.md` de la raíz del repositorio, salvo para actividades
-prácticas/experimentales (ver esa excepción en el README).
+Módulo de Python que genera informes `.docx` en normas APA 7 (trabajo de
+estudiante). Es el formato **por defecto** descrito en el `README.md` de la
+raíz, salvo para actividades prácticas/experimentales.
+
+`tareas.py tarea` crea un `generar_documento.py` ya conectado a la plantilla, y
+`tareas.py esqueleto` le añade una sección por criterio de la rúbrica.
+
+## Ejemplo completo
+
+```python
+import sys
+from pathlib import Path
+
+AQUI = Path(__file__).resolve().parent
+sys.path.insert(0, str(AQUI.parents[2] / "_plantillas"))  # materias/<materia>/<tarea>/
+from apa_docx import *
+
+SALIDA = AQUI / nombre_entregable("A15_Procedimientos_Almacenados")  # + sufijo del .env
+
+bib = Bibliografia()
+bib.agregar("oracle2024", ["Oracle"], 2024, "MySQL 8.4 reference manual",
+            url="https://dev.mysql.com/doc/refman/8.4/en/")
+bib.agregar("ramos2023", ["Ramos, J.", "Pérez, A."], 2023, "Bases de datos relacionales",
+            "Alfaomega")
+
+doc, figura, tabla = nuevo_documento(
+    titulo="Procedimientos almacenados",
+    materia="Sistemas de Bases de Datos I",
+    salida=SALIDA,
+    tarea=AQUI,          # docente (README de la materia) y fecha de entrega (TAREA.md)
+)
+
+# Introducción: sin encabezado, como pide APA 7.
+parrafo(doc, f"Según {bib.cita_narrativa('ramos2023')}, un procedimiento almacenado...")
+
+titulo(doc, "Concepto y ventajas", 1, criterios="C1")
+parrafo(doc, f"Se ejecutan en el servidor {bib.cita('oracle2024')}.")
+
+titulo(doc, "Implementación", 1, criterios="C2")
+titulo(doc, "Procedimiento con parámetros OUT", 2)
+codigo(doc, "CREATE PROCEDURE p1(IN x INT, OUT y INT)\nBEGIN\n  SET y = x * 2;\nEND")
+tabla(doc, None, "Procedimientos implementados", ["Nombre", "Parámetros"],
+      [("p1", "IN x, OUT y"), ("p2", "IN a")])
+
+titulo(doc, "Evidencia de ejecución", 1, criterios="C3")
+figura(doc, None, "Ejecución de p1 en MySQL Workbench", "p1.png", "Captura propia.")
+
+titulo(doc, "Conclusiones", 1)
+parrafo(doc, "...")
+
+transversal(doc, "C5")                   # Ortografía y redacción: todo el documento
+referencias(doc, bib, criterios="C4")    # Página nueva, solo las fuentes citadas
+
+guardar_documento(doc, SALIDA)
+```
+
+## Funciones
+
+| Función | Para qué sirve |
+|---|---|
+| `nuevo_documento(titulo, materia, salida, ...)` | Crea el documento con estilos APA y portada de estudiante. Devuelve `(doc, figura, tabla)`. Opciones: `tarea=` (carpeta de la tarea: docente y fecha de entrega), `docente=`, `fecha=` (`str` o `date`), `carpeta_capturas=`, `nombre=`, `institucion=`, `carrera=`, `indice=True` (índice tras la portada; APA no lo pide). |
+| `titulo(doc, texto, nivel, criterios=None)` | Encabezado APA con estilo de Word *Heading N*. `1` centrado en negrita, `2` a la izquierda en negrita, `3` a la izquierda en negrita y cursiva. `criterios="C1"` o `["C1", "C2"]` marca qué criterios de la rúbrica cubre la sección. |
+| `transversal(doc, "C5", ...)` | Criterios que se cumplen en todo el documento (ortografía, formato...). |
+| `parrafo(doc, texto, ...)` | Párrafo justificado con sangría y doble espacio. Acepta `negrita`, `cursiva`, `alineacion`, `sangria=False`... |
+| `vinieta(doc, texto)` | Punto de lista con viñetas. |
+| `codigo(doc, texto)` | Bloque de código/comandos en Courier New, espacio sencillo. |
+| `figura(doc, numero, descripcion, archivo, nota)` | Figura APA (rótulo + título en cursiva + imagen + *Nota.*). `numero=None` numera solo. `archivo` es relativo a `capturas/`; si no existe deja `[FALTA LA CAPTURA: ...]`, que `comprobar` detecta. |
+| `tabla(doc, numero, descripcion, encabezados, filas)` | Tabla APA con encabezado que se repite entre páginas. `numero=None` numera sola. |
+| `Bibliografia()` | Fuentes con `agregar(clave, autores, anio, titulo, fuente, url=, detalles=, tipo=)`. Citas: `cita(clave)` → `(Ramos y Pérez, 2023)`, `cita(clave, "p. 15")`, `cita(c1, c2)`, `cita_narrativa(clave)` → `Ramos y Pérez (2023)`. Con 3 o más autores, *et al.* `tipo="articulo"` pone en cursiva la revista en vez del título. |
+| `referencias(doc, bib, criterios=None, entradas=())` | Sección Referencias en página nueva, en orden alfabético y con sangría francesa. Solo incluye las fuentes citadas y avisa de las que no. `entradas` añade referencias escritas a mano. |
+| `referencia(doc, texto)` | Una entrada escrita a mano; lo que va entre `*asteriscos*` sale en cursiva. |
+| `salto_de_pagina(doc)` | Salto de página. |
+| `leer_fuente(ruta)` | Lee un archivo de texto/código completo (útil para un anexo). |
+| `guardar_documento(doc, salida)` | Guarda el `.docx` (y rellena el índice si lo hay). |
+| `nombre_entregable(base, extension=".docx")` | `"A15_Titulo"` → `"A15_Titulo_<SUFIJO_ARCHIVOS>.docx"`. |
+| `fecha_portada(date)`, `fecha_hoy()` | `"25 de octubre de 2026"`. |
+| `convertir_a_grises(carpeta)` | **Desaconsejada** (ver abajo). |
+
+Los datos del estudiante (`NOMBRE_ESTUDIANTE`, `INSTITUCION`, `CARRERA`,
+`SUFIJO_ARCHIVOS`) salen del `.env` la primera vez que se necesitan;
+importar el módulo no exige el `.env`.
+
+## Cómo se conecta con la rúbrica
+
+`criterios="C1"` se guarda en el `.docx` como un marcador invisible en el
+encabezado. `tareas.py comprobar` lee el documento generado y, para cada
+criterio de `TAREA.md`, busca su marcador, cuenta las palabras, figuras y
+tablas de la sección (incluidas sus subsecciones) y las compara con el peso
+del criterio. Por eso se pueden cambiar los títulos con libertad, pero no
+quitar `criterios=`.
+
+Si una sección no está marcada pero su título se parece al de un criterio, se
+toma como cobertura **probable** y se avisa para que se marque.
+
+## Índice
+
+APA 7 no pide índice en trabajos de estudiante. Si el docente lo exige,
+`nuevo_documento(..., indice=True)` lo añade tras la portada. Word lo
+recalcula, con números de página, al abrir el documento. El PDF de
+LibreOffice muestra la lista de encabezados sin números de página.
 
 ## Las figuras van a color
 
@@ -16,107 +111,20 @@ empobrece sin ganar nada.
 
 `convertir_a_grises()` sigue existiendo para los documentos antiguos que ya
 dependían de ella, pero **está desaconsejada y no debe usarse en documentos
-nuevos**. Reescribe los archivos en el sitio; desde ahora guarda antes una
-copia intacta en la subcarpeta `originales/`, para que la conversión sea
-reversible. Antes no lo hacía, y por eso las capturas de la Parte 3 del
-práctico experimental de Arquitectura Computacional se perdieron en color de
-forma definitiva.
+nuevos**. Reescribe los archivos en el sitio, guardando antes una copia
+intacta en la subcarpeta `originales/`.
 
-## Requisitos
+## Compatibilidad con scripts antiguos
 
-- El `.venv` de la raíz del repositorio, con `requirements.txt` instalado (ver
-  README.md de la raíz).
-- El archivo `.env` de la raíz con los datos del estudiante. `apa_docx` los lee
-  al importarse; si falta, el script termina con un mensaje que explica cómo
-  crearlo.
-
-```bash
-.venv/bin/python materias/<materia>/<tarea>/generar_documento.py
-```
-
-## Uso básico
-
-`tareas.py tarea` ya crea un `generar_documento.py` con este encabezado. La
-ruta a la plantilla es relativa, así que funciona en cualquier equipo donde se
-clone el repositorio:
-
-```python
-import sys
-from pathlib import Path
-
-AQUI = Path(__file__).resolve().parent
-sys.path.insert(0, str(AQUI.parents[2] / "_plantillas"))  # materias/<materia>/<tarea>/
-from apa_docx import *
-
-CAP = AQUI / "capturas"
-SALIDA = AQUI / nombre_entregable("A15_Titulo_Corto")  # añade el sufijo del .env
-
-# Las capturas se insertan tal cual: conservan su color original.
-
-doc, figura, tabla = nuevo_documento(
-    titulo="Título del Informe",
-    materia="Nombre de la Materia",
-    salida=SALIDA,
-    carpeta_capturas=CAP,        # opcional; por defecto es "capturas/" junto a SALIDA
-    fecha="24 de agosto de 2026",  # opcional; por defecto, la fecha de hoy
-)
-
-titulo(doc, "Introducción", 2)
-parrafo(doc, "Texto del párrafo, justificado, con sangría de primera línea...")
-
-titulo(doc, "Desarrollo", 2)
-titulo(doc, "Subsección", 3)
-vinieta(doc, "Punto de una lista con viñetas.")
-codigo(doc, "$ comando de ejemplo\n$ otro comando")
-
-figura(doc, 1, "Descripción de la figura en cursiva", "fig1_captura.png",
-       "Nota explicativa que aparece debajo, en letra más pequeña.")
-
-tabla(doc, 1, "Descripción de la tabla en cursiva",
-      ["Columna A", "Columna B", "Columna C"],
-      [("dato1", "dato2", "dato3"), ("dato4", "dato5", "dato6")])
-
-titulo(doc, "Referencias", 1)
-referencia(doc, "Autor, A. A. (2026). Título de la obra. Editorial.")
-
-guardar_documento(doc, SALIDA)
-```
-
-`nuevo_documento()` ya arma la portada (título, nombre, institución, carrera,
-materia, fecha — sin tablas ni logos), aplica Times New Roman 12 a doble
-espacio, márgenes de 1 pulgada y numeración de página, y repite el título en
-negrita al inicio del cuerpo. Los datos del estudiante salen del `.env`
-(`NOMBRE_ESTUDIANTE`, `INSTITUCION`, `CARRERA`); pasar `nombre=`,
-`institucion=` o `carrera=` a `nuevo_documento()` solo si hay que
-sobreescribirlos para un caso puntual.
-
-## Funciones disponibles
-
-| Función | Para qué sirve |
-|---|---|
-| `nuevo_documento(...)` | Crea el `Document()`, aplica estilos y arma la portada. Devuelve `(doc, figura, tabla)`. |
-| `titulo(doc, texto, nivel)` | Encabezado. `nivel=1` centrado (secciones principales), `2`/`3` alineados a la izquierda (`3` en cursiva). |
-| `parrafo(doc, texto, ...)` | Párrafo justificado con sangría, doble espacio. Acepta `negrita`, `cursiva`, `alineacion`, `sangria=False` para portada, etc. |
-| `vinieta(doc, texto)` | Punto de lista con viñetas. |
-| `codigo(doc, texto)` | Bloque de comandos/código en Courier New, espacio sencillo. |
-| `figura(doc, numero, descripcion, archivo, nota)` | Figura en formato APA (rótulo + descripción en cursiva + imagen + Nota). `archivo` es relativo a `carpeta_capturas`. |
-| `tabla(doc, numero, descripcion, encabezados, filas)` | Tabla genérica en formato APA con bordes y encabezado sombreado. |
-| `referencia(doc, texto)` | Entrada de la lista de referencias con sangría francesa. |
-| `convertir_a_grises(carpeta)` | **Desaconsejada.** Convierte las capturas de una carpeta a escala de grises, reescribiéndolas en el sitio (respalda antes en `originales/`). Las figuras van a color: no usar en documentos nuevos. |
-| `leer_fuente(ruta)` | Lee un archivo de texto/código completo (útil para volcar código fuente en un Anexo). |
-| `guardar_documento(doc, salida)` | Equivale a `doc.save(salida)` con un mensaje de confirmación. |
-| `nombre_entregable(base, extension=".docx")` | `"A15_Titulo"` → `"A15_Titulo_<SUFIJO_ARCHIVOS>.docx"`. |
-| `fecha_hoy()` | Fecha de hoy en formato de portada: `"23 de septiembre de 2026"`. |
+Los `generar_documento.py` creados con la versión anterior siguen funcionando
+sin cambios. Lo que cambia en el resultado: los encabezados pasan a ser
+estilos *Heading*, la portada sigue el orden APA (la afiliación va en una
+línea, "Carrera, Institución") y `referencia()` interpreta `*asteriscos*`
+como cursiva. Para que `comprobar` pueda verificarlos, añade `criterios="..."`
+a sus `titulo(...)`.
 
 ## Cuándo NO usar esta plantilla
 
 Para actividades **prácticas o experimentales**, el formato de entrega se
-consulta con el usuario antes de generar el documento (ver README.md de la
-raíz). No asumir este estilo APA por defecto en esos casos.
-
----
-
-# Crear materias y tareas (`tareas.py`)
-
-La referencia completa de comandos (`verificar`, `materia`, `tarea`, `pdf`) está en el README.md de la raíz, y las reglas que sigue el agente
-de IA, en `AGENTS.md`.
+consulta con el usuario antes de generar el documento (ver el README de la
+raíz).
