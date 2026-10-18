@@ -3,6 +3,7 @@
 - **Materia:** {materia_nombre}
 - **Tipo:** {tipo}
 - **Fecha de entrega:** <!-- AAAA-MM-DD -->
+- **Extensión:** <!-- p. ej. "1500 palabras" o "4-6 páginas"; vacío si el docente no la fija -->
 - **Estado:** pendiente
 
 ## Enunciado
@@ -15,13 +16,16 @@ o deja el PDF/DOCX original en la carpeta enunciado/ y escribe "ver enunciado/".
 ## Rúbrica
 
 <!--
-OBLIGATORIA: el documento se genera a partir de ella. Deja el archivo de la
-rúbrica en enunciado/ o pega aquí sus criterios con su puntaje. Si el docente
-no dio rúbrica, escribe "sin rúbrica" y los criterios que te dijo en clase.
+OBLIGATORIA: el documento se genera a partir de ella. Un criterio por fila,
+con su puntaje. Si la rúbrica del docente es un .docx, impórtala con
+    tareas.py rubrica <carpeta> --importar enunciado/<rubrica>.docx
+Si el docente no dio rúbrica, escribe los criterios que te dijo en clase.
+"Dónde se cumple" la rellena `tareas.py comprobar --actualizar` leyendo el
+.docx generado: no hace falta escribirla a mano.
 -->
 
-| Criterio | Puntaje | Dónde se cumple |
-|---|---|---|
+| ID | Criterio | Puntaje | Dónde se cumple |
+|---|---|---|---|
 
 ## Qué se entrega
 

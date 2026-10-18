@@ -1,15 +1,19 @@
 # -*- coding: utf-8 -*-
 """Lee los datos personales del archivo .env de la raíz del repositorio.
 
-El .env es obligatorio: sin él no se puede crear tareas ni generar documentos,
-porque la portada y los nombres de archivo dependen de estos datos.
-Se crea copiando .env.example y rellenándolo.
+El .env es obligatorio para crear tareas y generar documentos, porque la
+portada y los nombres de archivo dependen de estos datos. Se crea copiando
+.env.example y rellenándolo.
+
+La variable de entorno RUBRIC_DRIVEN_ENV permite apuntar a otro archivo (la
+usan los tests para no tocar el .env real).
 """
+import os
 import sys
 from pathlib import Path
 
 RAIZ = Path(__file__).resolve().parent.parent
-ARCHIVO_ENV = RAIZ / ".env"
+ARCHIVO_ENV = Path(os.environ.get("RUBRIC_DRIVEN_ENV") or RAIZ / ".env")
 
 OBLIGATORIAS = {
     "NOMBRE_ESTUDIANTE": "nombre completo que va en la portada",
