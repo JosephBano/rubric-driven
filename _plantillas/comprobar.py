@@ -52,11 +52,12 @@ class Seccion:
     titulo: str
     nivel: int
     criterios: list = field(default_factory=list)
-    palabras: int = 0
+    palabras: int = 0            # de la sección y de todas sus subsecciones
     figuras: int = 0
     tablas: int = 0
     anexo: bool = False
     referencias: bool = False
+    palabras_propias: int = 0    # solo las de su propio texto, sin subsecciones
 
     @property
     def vacia(self) -> bool:
@@ -179,6 +180,8 @@ def analizar(ruta_docx: Path) -> Analisis:
         for s in abiertas:
             s.palabras += n
             s.figuras += figuras
+        if abiertas:
+            abiertas[-1].palabras_propias += n
         if not any(s.anexo for s in abiertas):
             a.palabras_cuerpo += n
         for m in _PENDIENTE.finditer(texto):
@@ -238,6 +241,24 @@ class Cobertura:
         return texto + (" — probable, sin marcar" if self.modo == "probable" else "")
 
 
+def _palabras_de(secciones: list, s: Seccion) -> int:
+    """Palabras que aporta una sección marcada: las suyas más las de sus
+    subsecciones, salvo las que tienen criterios propios (esas ya cuentan
+    para su criterio y no deben contarse dos veces)."""
+    total = s.palabras_propias
+    i = next(k for k, x in enumerate(secciones) if x is s)
+    excluida = None   # nivel de la subsección con criterios cuyo subárbol se omite
+    for x in secciones[i + 1:]:
+        if x.nivel <= s.nivel:
+            break
+        if excluida is not None and x.nivel > excluida:
+            continue
+        excluida = x.nivel if x.criterios else None
+        if excluida is None:
+            total += x.palabras_propias
+    return total
+
+
 def cruzar(criterios: list, a: Analisis) -> list:
     coberturas = []
     for c in criterios:
@@ -249,7 +270,7 @@ def cruzar(criterios: list, a: Analisis) -> list:
         elif c.id in a.transversales:
             cob.modo = "transversal"
         else:
-            candidatas = [(round(_parecido(c.texto, s.titulo), 2), s) for s in a.secciones
+            candidatas = [(round(_parecido(c.nombre, s.titulo), 2), s) for s in a.secciones
                           if not s.criterios]
             candidatas = [x for x in candidatas if x[0] >= 0.5]
             if candidatas:
@@ -258,7 +279,7 @@ def cruzar(criterios: list, a: Analisis) -> list:
         for s in cob.secciones:
             # Una sección que cubre varios criterios reparte su extensión.
             compartida = max(1, len(s.criterios))
-            cob.palabras += s.palabras // compartida
+            cob.palabras += _palabras_de(a.secciones, s) // compartida
             cob.figuras += s.figuras
             cob.tablas += s.tablas
         coberturas.append(cob)
@@ -334,7 +355,7 @@ def comprobar(carpeta: Path, docx: Path | None = None, hoy: datetime.date | None
     for cob in inf.coberturas:
         c = cob.criterio
         if not cob.cubierto:
-            inf.errores.append(f"{c.id} sin cubrir: «{c.texto}». Márcalo con "
+            inf.errores.append(f"{c.id} sin cubrir: «{c.nombre}». Márcalo con "
                                f"titulo(doc, ..., criterios=\"{c.id}\") o transversal(doc, \"{c.id}\").")
             continue
         if cob.modo == "probable":
@@ -425,7 +446,7 @@ def imprimir(inf: Informe, carpeta: Path) -> None:
             marca = {"marcado": "[ok]   ", "transversal": "[ok]   ", "referencias": "[ok]   ",
                      "probable": "[~]    ", None: "[falta]"}[cob.modo]
             peso = formato_puntaje(c)
-            print(f"  {marca} {c.id:<{ancho}}  {c.texto[:48]:<48}  {peso:>9}  → {cob.donde()}")
+            print(f"  {marca} {c.id:<{ancho}}  {c.nombre[:48]:<48}  {peso:>9}  → {cob.donde()}")
         cubiertos, total = inf.puntos
         if total:
             print(f"\n  Puntos con sección que los cubre: {rub.formatear_puntaje(cubiertos)} "

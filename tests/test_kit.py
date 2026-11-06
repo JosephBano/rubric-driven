@@ -67,6 +67,23 @@ class TestRubrica(unittest.TestCase):
         self.assertTrue(c.de_referencias)
         self.assertFalse(c.transversal)
 
+    def test_criterios_de_contenido_no_son_transversales(self):
+        for texto in ("Estilo de programación", "Presentación del problema",
+                      "Formato de la tabla de datos", "Coherencia del modelo ER",
+                      "Limpieza de datos"):
+            self.assertFalse(rub.Criterio("C1", texto).transversal, texto)
+
+    def test_criterios_transversales_habituales(self):
+        for texto in ("Ortografía y redacción", "Normas APA", "Formato APA 7",
+                      "Puntualidad en la entrega", "Cumple el formato solicitado"):
+            self.assertTrue(rub.Criterio("C1", texto).transversal, texto)
+
+    def test_etiqueta_fuerza_el_tipo(self):
+        self.assertTrue(rub.Criterio("C1", "Calidad del texto (transversal)").transversal)
+        self.assertFalse(rub.Criterio("C1", "Ortografía del código (contenido)").transversal)
+        self.assertEqual(rub.Criterio("C1", "Calidad del texto (transversal)").nombre,
+                         "Calidad del texto")
+
     def test_importar_matriz_docx(self):
         from docx import Document
         doc = Document()
@@ -82,6 +99,23 @@ class TestRubrica(unittest.TestCase):
             criterios = rub.importar_docx(ruta)
         self.assertEqual([(c.id, c.texto, c.puntaje) for c in criterios],
                          [("C1", "Explica el concepto", 4), ("C2", "Implementa", 4)])
+
+
+class TestCruzar(unittest.TestCase):
+    def test_h1_no_cuenta_dos_veces_las_palabras_de_su_h2(self):
+        a = comp.Analisis(secciones=[
+            comp.Seccion("H1", 1, ["C1"], palabras=300, palabras_propias=200),
+            comp.Seccion("H2", 2, ["C2"], palabras=100, palabras_propias=100)])
+        cob = comp.cruzar([rub.Criterio("C1", "a", 50), rub.Criterio("C2", "b", 50)], a)
+        self.assertEqual([c.palabras for c in cob], [200, 100])
+        self.assertEqual([c.esperado for c in cob], [150, 150])
+
+    def test_h1_con_h2_sin_marcar_conserva_todo_el_subarbol(self):
+        a = comp.Analisis(secciones=[
+            comp.Seccion("H1", 1, ["C1"], palabras=300, palabras_propias=200),
+            comp.Seccion("H2", 2, [], palabras=100, palabras_propias=100)])
+        cob = comp.cruzar([rub.Criterio("C1", "a", 50)], a)
+        self.assertEqual(cob[0].palabras, 300)
 
 
 class TestFicha(unittest.TestCase):
@@ -174,6 +208,34 @@ class TestExtremoAExtremo(unittest.TestCase):
         if ok and r.returncode != 0:
             self.fail(f"tareas.py {' '.join(args)} → {r.returncode}\n{r.stdout}\n{r.stderr}")
         return r
+
+    def test_estado_materia_inexistente(self):
+        self.tareas("materia", "m", "Materia")
+        r = self.tareas("estado", "noexiste", ok=False)
+        self.assertNotEqual(r.returncode, 0)
+        self.assertNotIn("Traceback", r.stderr)
+        self.assertIn("noexiste", r.stderr)
+
+    def test_estado_admite_ruta_materias(self):
+        self.tareas("materia", "m", "Materia")
+        self.assertIn("No hay", self.tareas("estado", "materias/m").stdout)
+
+    def test_tarea_rechaza_codigo_y_titulo_invalidos(self):
+        self.tareas("materia", "m", "Materia")
+        for codigo, titulo in (("../X", "Titulo"), ("A/B", "Titulo"), ("..", "Titulo"),
+                               ("", "Titulo"), ("A1", "¿¡?!"), ("A1", "")):
+            r = self.tareas("tarea", "m", codigo, titulo, ok=False)
+            self.assertNotEqual(r.returncode, 0, (codigo, titulo))
+            self.assertNotIn("Traceback", r.stderr, (codigo, titulo))
+        self.assertEqual([p.name for p in (self.kit / "materias").iterdir()], ["m"])
+        self.assertEqual(list((self.kit / "materias/m").iterdir()),
+                         [self.kit / "materias/m/README.md"])
+
+    def test_materia_rechaza_nombres_invalidos(self):
+        for carpeta in ("..", ".", "", "a/b"):
+            r = self.tareas("materia", carpeta, "N", ok=False)
+            self.assertNotEqual(r.returncode, 0, carpeta)
+            self.assertNotIn("Traceback", r.stderr, carpeta)
 
     def test_flujo_completo(self):
         self.tareas("materia", "sgbd1", "Sistemas de Bases de Datos I")

@@ -22,11 +22,17 @@ import ficha
 ENCABEZADO = ("ID", "Criterio", "Puntaje", "Dónde se cumple")
 
 # Criterios que no corresponden a una sección sino a todo el documento.
+# Solo frases inequívocas: palabras sueltas como "formato", "estilo" o
+# "presentación" aparecen también en criterios de contenido ("Formato de la
+# tabla de datos"). Para los casos dudosos, la etiqueta explícita (ver abajo).
 _TRANSVERSAL = re.compile(
-    r"ortograf|redacci|gram[aá]tic|formato|presentaci|normas apa|\bapa\b|puntualidad|"
-    r"entrega a tiempo|coherencia|cohesi[oó]n|estilo|limpieza",
-    re.I,
+    r"ortograf|redaccion|gramatic|cohesion|normas apa|\bapa\b|puntualidad|"
+    r"entrega a tiempo|estilo academico|"
+    r"formato (solicitado|requerido|indicado|de entrega|del documento|del trabajo)|"
+    r"cumple (con )?el formato|presentacion (del documento|del trabajo|general)",
 )
+# Etiqueta al final del criterio que fuerza el tipo: "Calidad del texto (transversal)".
+_ETIQUETA = re.compile(r"\s*\((transversal|contenido)\)\s*$", re.I)
 _REFERENCIAS = re.compile(r"referencia|bibliograf|\bcita|fuentes", re.I)
 
 
@@ -42,8 +48,20 @@ class Criterio:
         return bool(_REFERENCIAS.search(self.texto))
 
     @property
+    def etiqueta(self) -> str | None:
+        m = _ETIQUETA.search(self.texto)
+        return m[1].lower() if m else None
+
+    @property
+    def nombre(self) -> str:
+        """El criterio sin la etiqueta (transversal)/(contenido)."""
+        return _ETIQUETA.sub("", self.texto)
+
+    @property
     def transversal(self) -> bool:
-        return bool(_TRANSVERSAL.search(self.texto)) and not self.de_referencias
+        if self.etiqueta:
+            return self.etiqueta == "transversal"
+        return bool(_TRANSVERSAL.search(normalizar(self.texto))) and not self.de_referencias
 
 
 def normalizar(texto: str) -> str:

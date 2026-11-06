@@ -105,7 +105,7 @@ transversal(doc, 'C5')                    # Ortografía y redacción: todo el do
 referencias(doc, bib, criterios='C4')     # Referencias en formato APA
 ```
 
-Los títulos se pueden cambiar con libertad: lo que conecta la sección con el criterio es `criterios='C1'`, que queda guardado como marcador invisible en el `.docx`. Los criterios de ortografía, formato o redacción se reconocen como **transversales**; los de referencias se asignan a la sección Referencias. Mientras las secciones estén vacías, el esqueleto se puede regenerar; si ya tienen texto, hace falta `--forzar` (y se guarda una copia `.bak`).
+Los títulos se pueden cambiar con libertad: lo que conecta la sección con el criterio es `criterios='C1'`, que queda guardado como marcador invisible en el `.docx`. Los criterios de ortografía, redacción, normas APA o puntualidad se reconocen como **transversales** (si la detección se equivoca, añade `(transversal)` o `(contenido)` al final del criterio en `TAREA.md` para forzar el tipo); los de referencias se asignan a la sección Referencias. Mientras las secciones estén vacías, el esqueleto se puede regenerar; si ya tienen texto, hace falta `--forzar` (y se guarda una copia `.bak`).
 
 ### 4. Escribir, generar y comprobar
 
