@@ -34,7 +34,7 @@ def titulo_de(criterio: str, max_palabras: int = 9) -> str:
 
 
 def _cabecera(c: rub.Criterio, porcentaje: float | None, palabras: int | None) -> str:
-    partes = [c.id, c.texto]
+    partes = [c.id, c.nombre]
     if c.puntaje is not None:
         partes.append(f"{rub.formatear_puntaje(c.puntaje)} pts"
                       + (f" ({porcentaje:.0f} %)" if porcentaje is not None else ""))
@@ -73,7 +73,7 @@ def bloque(criterios: list, total_palabras: int | None = None) -> tuple[str, str
               'parrafo(doc, "")', ""]
     for c, peso in zip(cuerpo, pesos):
         L += [_cabecera(c, pct(c), round(presupuesto * peso / total_pesos)),
-              f"titulo(doc, {titulo_de(c.texto)!r}, 1, criterios={c.id!r})",
+              f"titulo(doc, {titulo_de(c.nombre)!r}, 1, criterios={c.id!r})",
               'parrafo(doc, "")', ""]
     concl_ids = " ".join(c.id for c in concl)
     for c in concl:

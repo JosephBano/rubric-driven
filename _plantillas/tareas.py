@@ -64,6 +64,9 @@ LO_TIMEOUT = 300
 # --------------------------------------------------------------------------
 # Utilidades
 # --------------------------------------------------------------------------
+CODIGO_VALIDO = re.compile(r"[A-Z0-9][A-Z0-9_-]*")
+
+
 def slug_titulo(titulo: str) -> str:
     """'Procedimientos almacenados' -> 'Procedimientos_Almacenados' (sin tildes)."""
     sin_tildes = unicodedata.normalize("NFKD", titulo).encode("ascii", "ignore").decode()
@@ -149,9 +152,20 @@ def cmd_verificar(_args) -> None:
     sys.exit(0 if ok else 1)
 
 
+def materia_o_salir(nombre: str) -> Path:
+    """Carpeta de una materia existente; admite "sgbd1" o "materias/sgbd1"."""
+    nombre_carpeta = Path(nombre).name
+    carpeta = MATERIAS / nombre_carpeta
+    if not nombre_carpeta or not carpeta.is_dir():
+        existentes = ", ".join(sorted(p.name for p in MATERIAS.iterdir() if p.is_dir())) if MATERIAS.is_dir() else "ninguna"
+        sys.exit(f"No existe la materia '{nombre_carpeta}' en materias/ (hay: {existentes}).\n"
+                 f"  Créala con: tareas.py materia {nombre_carpeta} \"Nombre\"")
+    return carpeta
+
+
 def cmd_materia(args) -> None:
     cargar_o_salir()
-    if "/" in args.carpeta or "\\" in args.carpeta:
+    if args.carpeta in ("", ".", "..") or "/" in args.carpeta or "\\" in args.carpeta:
         sys.exit("Indica solo el nombre de la carpeta (p. ej. sgbd2); se crea dentro de materias/.")
     destino = MATERIAS / args.carpeta
     if destino.exists():
@@ -167,15 +181,16 @@ def cmd_materia(args) -> None:
 
 def cmd_tarea(args) -> None:
     cargar_o_salir()
-    nombre_carpeta = Path(args.materia).name  # admite "sgbd1" o "materias/sgbd1"
-    carpeta_materia = MATERIAS / nombre_carpeta
-    if not carpeta_materia.is_dir():
-        existentes = ", ".join(sorted(p.name for p in MATERIAS.iterdir() if p.is_dir())) if MATERIAS.is_dir() else "ninguna"
-        sys.exit(f"No existe la materia '{nombre_carpeta}' en materias/ (hay: {existentes}).\n"
-                 f"  Créala con: tareas.py materia {nombre_carpeta} \"Nombre\"")
+    carpeta_materia = materia_o_salir(args.materia)
     codigo = args.codigo.upper()
+    if not CODIGO_VALIDO.fullmatch(codigo):
+        sys.exit(f"Código no válido: '{args.codigo}'. Usa letras, números, guiones o guiones bajos "
+                 "(p. ej. A15, P2, E1); no puede llevar '/' ni '..'.")
+    titulo_slug = slug_titulo(args.titulo)
+    if not titulo_slug:
+        sys.exit(f"El título '{args.titulo}' no tiene letras ni números con los que nombrar la carpeta.")
     tipo = args.tipo or tipo_por_codigo(codigo)
-    base = f"{codigo}_{slug_titulo(args.titulo)}"
+    base = f"{codigo}_{titulo_slug}"
     destino = carpeta_materia / base
     if destino.exists():
         sys.exit(f"Ya existe: {ruta_relativa(destino)}")
@@ -245,7 +260,7 @@ def cmd_rubrica(args) -> None:
     for c in criterios:
         pct = f"{100 * c.puntaje / total:4.0f} %" if total and c.puntaje is not None else "     "
         tipo = " (transversal)" if c.transversal else " (referencias)" if c.de_referencias else ""
-        print(f"  {c.id:<{ancho}}  {comp.formato_puntaje(c):>9}  {pct}  {c.texto}{tipo}")
+        print(f"  {c.id:<{ancho}}  {comp.formato_puntaje(c):>9}  {pct}  {c.nombre}{tipo}")
     print(f"  Total: {rub.formatear_puntaje(total)} pts" if total else
           "  Sin puntajes: el reparto de extensión será a partes iguales.")
     if any(re.fullmatch(r"C\d+", c.id) is None for c in criterios):
@@ -312,6 +327,20 @@ def _limitar_escritura() -> None:
     resource.setrlimit(resource.RLIMIT_FSIZE, (LO_LIMITE_BYTES, LO_LIMITE_BYTES))
 
 
+def _comando_limitado(comando: list) -> tuple[list, object]:
+    """Limita el tamaño de archivo que puede escribir LibreOffice.
+
+    Con `prlimit` (util-linux) el límite se aplica sin código entre fork y exec;
+    `preexec_fn` solo queda de reserva porque no es seguro si hay hilos.
+    """
+    if os.name != "posix":
+        return comando, None
+    prlimit = shutil.which("prlimit")
+    if prlimit:
+        return [prlimit, f"--fsize={LO_LIMITE_BYTES}", *comando], None
+    return comando, _limitar_escritura
+
+
 def convertir_pdf(documentos: list) -> int:
     """Convierte cada .docx a .pdf junto a él. Devuelve el número de fallos."""
     soffice = shutil.which("soffice") or shutil.which("libreoffice")
@@ -320,16 +349,32 @@ def convertir_pdf(documentos: list) -> int:
         return len(documentos)
     LO_TMP.mkdir(parents=True, exist_ok=True)
     LO_PERFIL.mkdir(parents=True, exist_ok=True)
+    # El perfil de LibreOffice es compartido: dos conversiones a la vez se
+    # pisarían (la segunda delega en la primera y sale sin generar nada). Se
+    # serializan con un bloqueo; el SO lo libera si el proceso muere.
+    with open(LO_PERFIL.parent / (LO_PERFIL.name + ".lock"), "w") as cerrojo:
+        if os.name == "posix":
+            import fcntl
+            try:
+                fcntl.flock(cerrojo, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except OSError:
+                print("Otra conversión a PDF está en marcha; esperando a que termine...")
+                fcntl.flock(cerrojo, fcntl.LOCK_EX)
+        return _convertir(soffice, documentos)
+
+
+def _convertir(soffice: str, documentos: list) -> int:
     entorno = dict(os.environ, TMPDIR=str(LO_TMP))
     fallos = 0
     for docx in documentos:
         comando = [soffice, f"-env:UserInstallation={LO_PERFIL.as_uri()}", "--headless",
                    "--convert-to", "pdf", "--outdir", str(docx.parent), str(docx)]
+        comando, preexec = _comando_limitado(comando)
         # Proceso en su propio grupo: si se cuelga se mata solo ese grupo, no
         # los LibreOffice que tengas abiertos.
         proc = subprocess.Popen(comando, env=entorno, stdout=subprocess.PIPE,
                                 stderr=subprocess.PIPE, text=True, start_new_session=True,
-                                preexec_fn=_limitar_escritura if os.name == "posix" else None)
+                                preexec_fn=preexec)
         try:
             salida, error = proc.communicate(timeout=LO_TIMEOUT)
         except subprocess.TimeoutExpired:
@@ -367,7 +412,7 @@ def cmd_pdf(args) -> None:
 def cmd_estado(args) -> None:
     if not MATERIAS.is_dir():
         sys.exit("Todavía no hay materias (tareas.py materia <carpeta> \"Nombre\").")
-    materias = [MATERIAS / args.materia] if args.materia else sorted(
+    materias = [materia_o_salir(args.materia)] if args.materia else sorted(
         p for p in MATERIAS.iterdir() if p.is_dir())
     filas = []
     hoy = datetime.date.today()
