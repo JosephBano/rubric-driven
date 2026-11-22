@@ -52,6 +52,17 @@ cp .env.example .env        # tus datos de portada (obligatorio)
 
 El `.env` lleva los datos de la portada (nombre, institución, carrera) y el sufijo de los entregables. No se sube al repositorio.
 
+También admite, de forma opcional, cuánto deben ocupar y qué tan elaborados son los documentos por defecto:
+
+| Clave | Valores | Efecto |
+|---|---|---|
+| `NIVEL_ACADEMICO` | texto libre (`instituto`, `universidad`...) | Orienta el tono; lo muestra `verificar`. |
+| `PROFUNDIDAD` | `basica`, `media`, `alta` | Guía en el esqueleto y referencias mínimas (3, 4 u 8). |
+| `PAGINAS_MAX_TAREA` | número | Límite de páginas del PDF, con portada y referencias. |
+| `PAGINAS_MAX_PROYECTO` | número | El mismo límite para las tareas de tipo proyecto. |
+
+Con un límite de páginas, `esqueleto` reparte las palabras que caben (≈ 1300 para 10 páginas) y `generar` da error si el PDF lo supera. Los campos **Extensión** y **Profundidad** de `TAREA.md` mandan sobre el `.env`: si el docente pide más, se cumple lo que pida.
+
 > Para no escribir la ruta completa: `alias tareas='.venv/bin/python _plantillas/tareas.py'`. Los ejemplos de abajo usan ese alias.
 
 ## Uso
@@ -61,6 +72,7 @@ El `.env` lleva los datos de la portada (nombre, institución, carrera) y el suf
 ```bash
 tareas materia sgbd1 "Sistemas de Bases de Datos I"     # rellena docente y reglas en su README.md
 tareas tarea sgbd1 A15 "Procedimientos almacenados"
+tareas tarea sgbd1 PI1 "Proyecto integrador" --tipo proyecto   # usa PAGINAS_MAX_PROYECTO
 ```
 
 ```
@@ -86,7 +98,7 @@ Si la rúbrica viene en PDF o en una imagen, copia los criterios a la tabla a ma
 | C2 | Implementa tres procedimientos con parámetros IN y OUT | 4 | |
 ```
 
-Rellena también la fecha de entrega y, si el docente la fija, la extensión (`1500 palabras`, `4-6 páginas`). Sin argumentos, `tareas rubrica <tarea>` muestra la rúbrica con el peso de cada criterio.
+Rellena también la fecha de entrega y, si el docente la fija, la extensión (`1500 palabras`, `4-6 páginas`) y la profundidad (`básica`, `media`, `alta`); vacías, se usan las del `.env`. Sin argumentos, `tareas rubrica <tarea>` muestra la rúbrica con el peso de cada criterio.
 
 ### 3. Esqueleto: una sección por criterio
 
@@ -113,7 +125,7 @@ Los títulos se pueden cambiar con libertad: lo que conecta la sección con el c
 tareas generar materias/sgbd1/A15_Procedimientos_Almacenados
 ```
 
-Ejecuta `generar_documento.py`, comprueba el `.docx` contra la rúbrica, rellena la columna "Dónde se cumple" de `TAREA.md` y genera el PDF. Termina con error si algún criterio queda sin cubrir o hay contenido pendiente. `tareas comprobar <tarea>` hace solo la comprobación (`--actualizar` para escribir en `TAREA.md`).
+Ejecuta `generar_documento.py`, genera el PDF, comprueba el `.docx` contra la rúbrica y rellena la columna "Dónde se cumple" de `TAREA.md`. Termina con error si algún criterio queda sin cubrir, hay contenido pendiente o el PDF pasa del límite de páginas. `tareas comprobar <tarea>` hace solo la comprobación (`--actualizar` para escribir en `TAREA.md`).
 
 ### 5. Seguimiento
 
@@ -136,10 +148,10 @@ Entrega      Días  Estado     Materia         Tarea                            
 |---|---|
 | `verificar` | Comprueba `.env`, dependencias, LibreOffice y que el repo público no contenga materias. |
 | `materia <carpeta> "<Nombre>"` | Crea `materias/<carpeta>/` con su `README.md`. |
-| `tarea <materia> <código> "<Título>"` | Crea la carpeta de la tarea. El tipo se deduce de la letra: A = actividad, P = práctica, E = evaluación. |
+| `tarea <materia> <código> "<Título>" [--tipo T]` | Crea la carpeta de la tarea. El tipo se deduce de la letra (A = actividad, P = práctica, E = evaluación); `--tipo proyecto` para los proyectos. |
 | `rubrica <tarea> [--importar x.docx]` | Muestra la rúbrica de `TAREA.md` o la importa del `.docx` del docente. |
 | `esqueleto <tarea> [--palabras N]` | Escribe en `generar_documento.py` una sección por criterio, con su extensión orientativa. |
-| `generar <tarea> [--sin-pdf]` | Genera el `.docx`, lo comprueba, actualiza `TAREA.md` y genera el `.pdf`. |
+| `generar <tarea> [--sin-pdf]` | Genera el `.docx` y el `.pdf`, comprueba (también las páginas) y actualiza `TAREA.md`. |
 | `comprobar <tarea> [--actualizar]` | Verifica el `.docx` contra la rúbrica. |
 | `pdf <archivo.docx \| carpeta>` | Convierte a PDF con LibreOffice, con límites de disco y tiempo. |
 | `estado [<materia>] [--todas]` | Tareas por fecha de entrega con su cobertura. |

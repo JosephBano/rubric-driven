@@ -25,6 +25,7 @@ ENV = textwrap.dedent("""\
 
 import apa_docx  # noqa: E402  (importar no debe exigir el .env)
 import comprobar as comp  # noqa: E402
+import config  # noqa: E402
 import esqueleto as esq  # noqa: E402
 import ficha  # noqa: E402
 import rubrica as rub  # noqa: E402
@@ -129,6 +130,56 @@ class TestFicha(unittest.TestCase):
     def test_celdas_con_barra_escapada(self):
         self.assertEqual(ficha.celdas("| a | b \\| c |"), ["a", "b | c"])
 
+    def test_paginas_de(self):
+        self.assertEqual(ficha.paginas_de("4-6 páginas"), 6)
+        self.assertEqual(ficha.paginas_de("máximo 8 pág."), 8)
+        self.assertIsNone(ficha.paginas_de("1500 palabras"))
+        self.assertIsNone(ficha.paginas_de(None))
+
+
+def _tarea(**campos) -> ficha.Tarea:
+    return ficha.Tarea(carpeta=Path("."), codigo="A1", titulo="X", materia=ficha.Materia(Path("."), "M"),
+                       extension=ficha.leer_extension(campos.get("extensión")), campos=campos)
+
+
+class TestPreferencias(unittest.TestCase):
+    PREFS = config.Preferencias(nivel="instituto", profundidad="basica",
+                                paginas_tarea=10, paginas_proyecto=20)
+
+    def test_leer(self):
+        p = config.preferencias({"NIVEL_ACADEMICO": "instituto", "PROFUNDIDAD": "Básica",
+                                 "PAGINAS_MAX_TAREA": "10", "PAGINAS_MAX_PROYECTO": " 20 "})
+        self.assertEqual(p, self.PREFS)
+        self.assertEqual(config.preferencias({}), config.Preferencias())
+
+    def test_valores_invalidos(self):
+        for valores in ({"PROFUNDIDAD": "extrema"}, {"PAGINAS_MAX_TAREA": "diez"},
+                        {"PAGINAS_MAX_TAREA": "0"}, {"PAGINAS_MAX_PROYECTO": "-5"}):
+            with self.assertRaises(config.ConfigError, msg=valores):
+                config.preferencias(valores)
+
+    def test_limite_por_tipo(self):
+        self.assertEqual(ficha.paginas_max(_tarea(tipo="Actividad (A)"), self.PREFS)[0], 10)
+        self.assertEqual(ficha.paginas_max(_tarea(tipo="Proyecto"), self.PREFS)[0], 20)
+        self.assertIsNone(ficha.paginas_max(_tarea(), config.Preferencias())[0])
+
+    def test_tarea_md_manda(self):
+        # Extensión en páginas: su máximo es el límite; en palabras: anula el del .env.
+        self.assertEqual(ficha.paginas_max(_tarea(**{"extensión": "4-6 páginas"}), self.PREFS)[0], 6)
+        self.assertIsNone(ficha.paginas_max(_tarea(**{"extensión": "3000 palabras"}), self.PREFS)[0])
+        self.assertEqual(ficha.profundidad(_tarea(profundidad="alta"), self.PREFS), "alta")
+        self.assertEqual(ficha.profundidad(_tarea(profundidad=""), self.PREFS), "basica")
+        with self.assertRaises(config.ConfigError):
+            ficha.profundidad(_tarea(profundidad="mucha"), self.PREFS)
+
+    def test_palabras_objetivo(self):
+        sin = config.Preferencias()
+        self.assertEqual(ficha.palabras_objetivo(_tarea(**{"extensión": "900 palabras"}), self.PREFS, 1500), 900)
+        self.assertEqual(ficha.palabras_objetivo(_tarea(), self.PREFS, 1500), 1300)  # (10-2)×275×0,6
+        self.assertEqual(ficha.palabras_objetivo(_tarea(), config.Preferencias(profundidad="alta"), 1500),
+                         config.PROFUNDIDADES["alta"].palabras)
+        self.assertEqual(ficha.palabras_objetivo(_tarea(), sin, 1500), 1500)
+
 
 class TestBibliografia(unittest.TestCase):
     def setUp(self):
@@ -179,6 +230,12 @@ class TestCitasEnTexto(unittest.TestCase):
         self.assertIsNone(comp._PENDIENTE.search("La tarjeta pasa de Pendiente a Completada."))
         self.assertIsNone(comp._PENDIENTE.search("Queda pendiente para el Avance 3."))
 
+    def test_sin_fecha_con_espacio(self):
+        citas = list(comp._citas("Según la ficha (SRI, s. f.), el XML se firma."))
+        self.assertEqual(citas, [("SRI", "s.f.")])
+        self.assertTrue(comp._coincide("SRI", "s.f.", "SRI. (s. f.). *Ficha técnica*."))
+        self.assertTrue(comp._coincide("SRI", "s.f.", "SRI. (s.f.). *Ficha técnica*."))
+
     def test_coincide(self):
         self.assertTrue(comp._coincide("Ramos", "2023", "Ramos, J. y Pérez, A. (2023). *X*."))
         self.assertFalse(comp._coincide("Ramos", "2022", "Ramos, J. (2023). X."))
@@ -196,6 +253,8 @@ class TestEsqueleto(unittest.TestCase):
         self.assertIn("~200 palabras", bloque)  # 800 × 2/8
         self.assertIn("transversal(doc, 'C3')", bloque)
         self.assertEqual(refs, "C4")
+        con_guia, _ = esq.bloque(criterios, 1000, guia="Límite: 10 páginas.")
+        self.assertIn("# Límite: 10 páginas.", con_guia)
 
     def test_no_pisa_texto_escrito(self):
         self.assertFalse(esq._tiene_texto('# x\ntitulo(doc, "A", 1)\nparrafo(doc, "")\n'))
@@ -311,6 +370,45 @@ class TestExtremoAExtremo(unittest.TestCase):
         self.tareas("marcar", ruta, "lista")
         self.assertIn("| lista |", (self.kit / "materias/sgbd1/README.md").read_text(encoding="utf-8"))
         self.assertIn("A15_Procedimientos_Almacenados", self.tareas("estado").stdout)
+
+    def preferencias(self, texto: str) -> None:
+        (self.kit / ".env").write_text(ENV + texto, encoding="utf-8")
+
+    def test_esqueleto_con_preferencias(self):
+        self.preferencias('PROFUNDIDAD="basica"\nPAGINAS_MAX_TAREA=10\nPAGINAS_MAX_PROYECTO=20\n')
+        self.tareas("materia", "m", "Materia")
+        self.tareas("tarea", "m", "A1", "Simple")
+        self.tareas("tarea", "m", "X1", "Integrador", "--tipo", "proyecto")
+        for nombre in ("A1_Simple", "X1_Integrador"):
+            tarea_md = self.kit / "materias/m" / nombre / "TAREA.md"
+            tarea_md.write_text(tarea_md.read_text(encoding="utf-8").replace(
+                "|---|---|---|---|\n", "|---|---|---|---|\n| C1 | Explica el concepto | 10 | |\n"),
+                encoding="utf-8")
+        self.assertIn("**Tipo:** Proyecto", (self.kit / "materias/m/X1_Integrador/TAREA.md").read_text(encoding="utf-8"))
+        r = self.tareas("esqueleto", "materias/m/A1_Simple")
+        self.assertIn("~1300 palabras", r.stdout)
+        self.assertIn("Límite: 10 páginas", r.stdout)
+        self.assertIn("Profundidad básica", r.stdout)
+        self.assertIn("# Profundidad básica", (self.kit / "materias/m/A1_Simple/generar_documento.py")
+                      .read_text(encoding="utf-8"))
+        self.assertIn("Límite: 20 páginas", self.tareas("esqueleto", "materias/m/X1_Integrador").stdout)
+        self.assertIn("profundidad básica", self.tareas("verificar", ok=False).stdout)
+
+    def test_preferencia_invalida(self):
+        self.preferencias('PROFUNDIDAD="extrema"\n')
+        self.tareas("materia", "m", "Materia", ok=False)
+        r = self.tareas("verificar", ok=False)
+        self.assertIn("extrema", r.stdout)
+        self.assertNotIn("Traceback", r.stderr)
+
+    @unittest.skipUnless(shutil.which("soffice") or shutil.which("libreoffice"), "sin LibreOffice")
+    def test_limite_de_paginas(self):
+        self.preferencias("PAGINAS_MAX_TAREA=1\n")
+        self.tareas("materia", "m", "Materia")
+        self.tareas("tarea", "m", "A1", "Prueba")
+        r = self.tareas("generar", "materias/m/A1_Prueba", ok=False)
+        self.assertIn("PDF generado", r.stdout, r.stdout + r.stderr)
+        self.assertRegex(r.stdout, r"El PDF tiene \d+ páginas y el límite es 1 \(PAGINAS_MAX_TAREA\)")
 
     @unittest.skipUnless(shutil.which("soffice") or shutil.which("libreoffice"), "sin LibreOffice")
     def test_pdf(self):

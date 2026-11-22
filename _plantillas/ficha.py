@@ -11,7 +11,13 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
+import config
+
 PALABRAS_POR_PAGINA = 275  # Times New Roman 12 a doble espacio, aproximado
+# Para pasar de un límite de páginas a palabras de cuerpo: la portada y las
+# referencias ocupan ~2 páginas y las tablas, títulos y figuras ~40 % del resto.
+PAGINAS_FIJAS = 2
+FRACCION_TEXTO = 0.6
 
 _COMENTARIO = re.compile(r"<!--.*?-->", re.S)
 _CAMPO = re.compile(r"^\s*-\s*\*\*(?P<campo>[^*]+?):\*\*\s*(?P<valor>.*)$")
@@ -110,6 +116,14 @@ def leer_fecha(texto: str | None) -> datetime.date | None:
         return None
 
 
+def paginas_de(texto: str | None) -> int | None:
+    """'4-6 páginas' → 6 (el máximo); '1500 palabras' → None."""
+    if not texto or not re.search(r"p[áa]g", texto, re.I):
+        return None
+    numeros = [int(n) for n in re.findall(r"\d+", texto)]
+    return max(numeros) if numeros else None
+
+
 def leer_extension(texto: str | None) -> int | None:
     """'1500 palabras' → 1500; '4-6 páginas' → 5 × PALABRAS_POR_PAGINA."""
     if not texto:
@@ -145,6 +159,10 @@ class Tarea:
     extension: int | None = None
     formato: str | None = None
     campos: dict = field(default_factory=dict)
+
+    @property
+    def es_proyecto(self) -> bool:
+        return "proyecto" in (self.campos.get("tipo") or "").lower()
 
     @property
     def ruta(self) -> Path:
@@ -192,6 +210,37 @@ def leer_tarea(carpeta: Path) -> Tarea:
         formato=formato or None,
         campos=datos,
     )
+
+
+# --------------------------------------------------------------------------
+# Extensión y profundidad efectivas: TAREA.md manda sobre el .env
+# --------------------------------------------------------------------------
+def profundidad(tarea: Tarea, prefs: config.Preferencias) -> str | None:
+    """Clave de PROFUNDIDADES: la de TAREA.md, si no la del .env. Puede lanzar ConfigError."""
+    return config.clave_profundidad(tarea.campos.get("profundidad")) or prefs.profundidad
+
+
+def paginas_max(tarea: Tarea, prefs: config.Preferencias) -> tuple[int | None, str]:
+    """(límite de páginas, de dónde sale). Si TAREA.md fija la extensión, manda ella:
+    en páginas da el límite; en palabras anula el del .env."""
+    texto = tarea.campos.get("extensión") or tarea.campos.get("extension")
+    if texto:
+        return paginas_de(texto), "TAREA.md"
+    if tarea.es_proyecto:
+        return prefs.paginas_proyecto, "PAGINAS_MAX_PROYECTO"
+    return prefs.paginas_tarea, "PAGINAS_MAX_TAREA"
+
+
+def palabras_objetivo(tarea: Tarea, prefs: config.Preferencias, por_defecto: int) -> int:
+    """Extensión de cuerpo orientativa: TAREA.md > límite de páginas > profundidad > por_defecto."""
+    if tarea.extension:
+        return tarea.extension
+    paginas, _ = paginas_max(tarea, prefs)
+    if paginas:
+        util = max(paginas - PAGINAS_FIJAS, 1) * PALABRAS_POR_PAGINA * FRACCION_TEXTO
+        return max(int(round(util / 50)) * 50, 300)
+    clave = profundidad(tarea, prefs)
+    return config.PROFUNDIDADES[clave].palabras if clave else por_defecto
 
 
 def marcar_estado(tarea: Tarea, estado: str) -> list[Path]:

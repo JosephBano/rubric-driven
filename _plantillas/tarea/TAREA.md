@@ -3,7 +3,8 @@
 - **Materia:** {materia_nombre}
 - **Tipo:** {tipo}
 - **Fecha de entrega:** <!-- AAAA-MM-DD -->
-- **Extensión:** <!-- p. ej. "1500 palabras" o "4-6 páginas"; vacío si el docente no la fija -->
+- **Extensión:** <!-- p. ej. "1500 palabras" o "4-6 páginas"; vacío = la del .env (PAGINAS_MAX_*) -->
+- **Profundidad:** <!-- básica | media | alta; vacío = la del .env (PROFUNDIDAD) -->
 - **Estado:** pendiente
 
 ## Enunciado
