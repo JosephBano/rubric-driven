@@ -37,6 +37,7 @@ import unicodedata
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import config  # noqa: E402
 from config import RAIZ, ConfigError, cargar, cargar_o_salir  # noqa: E402
 import comprobar as comp  # noqa: E402
 import esqueleto as esq  # noqa: E402
@@ -49,6 +50,7 @@ TIPOS = {
     "actividad": "Actividad (A)",
     "practica": "Práctico-experimental (P)",
     "evaluacion": "Evaluación (E)",
+    "proyecto": "Proyecto",
     "otro": "Otro",
 }
 ESTADOS = ("pendiente", "lista", "entregada")
@@ -124,6 +126,7 @@ def cmd_verificar(_args) -> None:
     try:
         cfg = cargar()
         informe(True, f".env cargado ({cfg['NOMBRE_ESTUDIANTE']})")
+        print("  [--]    " + _resumen_preferencias(config.preferencias(cfg)))
     except ConfigError as e:
         informe(False, str(e).replace("\n", "\n          "))
 
@@ -150,6 +153,21 @@ def cmd_verificar(_args) -> None:
                 else "archivos de materias en el repo público: " + ", ".join(fuera[:5]))
 
     sys.exit(0 if ok else 1)
+
+
+def _resumen_preferencias(p: config.Preferencias) -> str:
+    if p == config.Preferencias():
+        return "sin preferencias de extensión ni profundidad (opcionales)"
+    partes = []
+    if p.nivel:
+        partes.append(f"nivel {p.nivel}")
+    if p.profundidad:
+        partes.append(f"profundidad {config.PROFUNDIDADES[p.profundidad].nombre}")
+    if p.paginas_tarea:
+        partes.append(f"máx. {p.paginas_tarea} págs. por tarea")
+    if p.paginas_proyecto:
+        partes.append(f"máx. {p.paginas_proyecto} por proyecto")
+    return "preferencias: " + ", ".join(partes)
 
 
 def materia_o_salir(nombre: str) -> Path:
@@ -279,12 +297,27 @@ def cmd_esqueleto(args) -> None:
     if "| ID |" not in tarea.ruta.read_text(encoding="utf-8"):
         rub.escribir(tarea.ruta, criterios)  # añade la columna ID a tablas antiguas
     try:
-        esq.aplicar(script, criterios, args.palabras or tarea.extension, forzar=args.forzar)
+        prefs = config.preferencias()
+        clave = ficha.profundidad(tarea, prefs)
+    except ConfigError as e:
+        sys.exit(f"Error de configuración: {e}")
+    total = args.palabras or ficha.palabras_objetivo(tarea, prefs, esq.PALABRAS_POR_DEFECTO)
+    limite, _ = ficha.paginas_max(tarea, prefs)
+    guias = []
+    if limite:
+        guias.append(f"Límite: {limite} páginas de PDF, con portada y referencias.")
+    if clave:
+        perfil = config.PROFUNDIDADES[clave]
+        guias.append(f"Profundidad {perfil.nombre}: {perfil.guia}; "
+                     f"al menos {perfil.referencias_min} referencias.")
+    try:
+        esq.aplicar(script, criterios, total, forzar=args.forzar, guia="\n".join(guias) or None)
     except (ValueError, FileExistsError) as e:
         sys.exit(str(e))
-    total = args.palabras or tarea.extension or esq.PALABRAS_POR_DEFECTO
     print(f"Esqueleto escrito en {ruta_relativa(script)}: {len(criterios)} criterios, "
           f"~{total} palabras en total.")
+    for g in guias:
+        print("  " + g)
     print("  Cada sección lleva un comentario con su criterio, peso y extensión orientativa.")
 
 
@@ -310,15 +343,17 @@ def cmd_generar(args) -> None:
     r = subprocess.run([python_del_repo(), str(script)], cwd=RAIZ)
     if r.returncode != 0:
         sys.exit(f"generar_documento.py terminó con error ({r.returncode}).")
+    # El PDF se convierte antes de comprobar para poder contar sus páginas.
+    fallo_pdf = False
+    docx = comp.buscar_docx(carpeta)
+    if not args.sin_pdf and docx:
+        print()
+        fallo_pdf = convertir_pdf([docx]) > 0
     print()
     inf = comp.comprobar(carpeta)
     if inf.coberturas:
         comp.actualizar_tarea(carpeta, inf)
     comp.imprimir(inf, carpeta)
-    fallo_pdf = False
-    if not args.sin_pdf and inf.docx:
-        print()
-        fallo_pdf = convertir_pdf([inf.docx]) > 0
     sys.exit(0 if inf.ok and not fallo_pdf else 1)
 
 
@@ -482,7 +517,8 @@ def main() -> None:
 
     p = sub.add_parser("esqueleto", help="escribe en generar_documento.py una sección por criterio")
     p.add_argument("tarea", help="carpeta de la tarea")
-    p.add_argument("--palabras", type=int, help="extensión total (por defecto la de TAREA.md o 1500)")
+    p.add_argument("--palabras", type=int, help="extensión total (por defecto: TAREA.md, el límite "
+                   "de páginas o la profundidad del .env, o 1500)")
     p.add_argument("--forzar", action="store_true", help="reescribe secciones con texto (copia .bak)")
 
     p = sub.add_parser("generar", help="ejecuta generar_documento.py, comprueba y convierte a PDF")

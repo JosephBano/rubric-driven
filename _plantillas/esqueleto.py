@@ -43,8 +43,10 @@ def _cabecera(c: rub.Criterio, porcentaje: float | None, palabras: int | None) -
     return "# " + " · ".join(partes)
 
 
-def bloque(criterios: list, total_palabras: int | None = None) -> tuple[str, str]:
-    """Devuelve (bloque de secciones, IDs que cubre la sección Referencias)."""
+def bloque(criterios: list, total_palabras: int | None = None,
+           guia: str | None = None) -> tuple[str, str]:
+    """Devuelve (bloque de secciones, IDs que cubre la sección Referencias).
+    `guia`: líneas sobre la extensión o la profundidad, como comentarios al principio."""
     total = total_palabras or PALABRAS_POR_DEFECTO
     transversales = [c for c in criterios if c.transversal]
     de_refs = [c for c in criterios if c.de_referencias]
@@ -64,6 +66,8 @@ def bloque(criterios: list, total_palabras: int | None = None) -> tuple[str, str
 
     L = [INICIO, f"# Extensión orientativa total: ~{total} palabras. Cambia los títulos con"
                  " libertad: lo que cuenta es el ID de criterios=."]
+    if guia:
+        L += [f"# {g}" for g in guia.splitlines()]
     if intro:
         for c in intro:
             L += [_cabecera(c, pct(c), round(total * PARTE_INTRO)),
@@ -90,7 +94,7 @@ def bloque(criterios: list, total_palabras: int | None = None) -> tuple[str, str
 
 
 def aplicar(script: Path, criterios: list, total_palabras: int | None = None,
-            forzar: bool = False) -> None:
+            forzar: bool = False, guia: str | None = None) -> None:
     """Sustituye el bloque de secciones de generar_documento.py.
 
     Si el bloque ya tiene texto escrito no lo toca salvo con forzar=True, y
@@ -109,7 +113,7 @@ def aplicar(script: Path, criterios: list, total_palabras: int | None = None,
                                   "--forzar para reescribirlas (se guarda una copia .bak).")
         script.with_suffix(".py.bak").write_text(texto, encoding="utf-8")
 
-    nuevo, refs = bloque(criterios, total_palabras)
+    nuevo, refs = bloque(criterios, total_palabras, guia)
     if refs:
         despues = re.sub(r"referencias\(doc, bib[^)]*\)",
                          f"referencias(doc, bib, criterios={refs!r})", despues, count=1)

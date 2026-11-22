@@ -9,27 +9,36 @@ mira qué hay de verdad.
     mínimo una sección cuyo título se le parezca (cobertura "probable");
   - proporción: la extensión de cada sección frente al peso del criterio;
   - extensión total frente a la que pide TAREA.md;
+  - páginas del PDF frente al límite (TAREA.md o PAGINAS_MAX_* del .env) y
+    referencias mínimas según la PROFUNDIDAD;
   - restos: capturas que faltan, secciones vacías, TODO, [COMPLETAR];
   - citas APA: cada cita del texto tiene su referencia y viceversa;
   - frescura: el .docx es más nuevo que generar_documento.py, el .pdf que el .docx.
 """
 import datetime
 import re
+import shutil
+import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 
+import config
 import ficha
 import rubrica as rub
 
 TITULOS_REFERENCIAS = {"referencias", "referencias bibliograficas", "bibliografia", "references"}
 _ANEXO = re.compile(r"^(anexo|apendice|apéndice|appendix)", re.I)
-_PENDIENTE = re.compile(r"\[FALTA[^\]]*\]|\[COMPLETAR[^\]]*\]|\bTODO\b|\bPENDIENTE\b|lorem ipsum", re.I)
+# Marcadores de contenido sin rellenar. TODO y PENDIENTE solo en mayúsculas: en minúscula son
+# palabras normales del texto (p. ej. el estado «Pendiente» de una tarea).
+_PENDIENTE = re.compile(r"(?i:\[FALTA[^\]]*\]|\[COMPLETAR[^\]]*\]|lorem ipsum)|\bTODO\b|\bPENDIENTE\b")
 _PALABRA = re.compile(r"\w+(?:[-'’]\w+)*")
 _ANIO = r"(?:(?:1[89]|20)\d{2}[a-z]?|s\.\s?f\.)"
 _APELLIDO = r"[A-ZÁÉÍÓÚÑÜ][\wÁÉÍÓÚÑÜáéíóúñü'’-]+(?:\s(?:de|del|van|von|la)\s[A-ZÁÉÍÓÚÑ][\wáéíóúñ'’-]+)?"
 _CITA_NARRATIVA = re.compile(rf"({_APELLIDO})(?:\set\sal\.|\s(?:y|e|&)\s{_APELLIDO})?\s\(({_ANIO})")
 _PARENTESIS = re.compile(r"\(([^()]+)\)")
-_PARTE_CITA = re.compile(rf"^(?:véase\s|ver\s|cf\.\s)?({_APELLIDO})(?:\set\sal\.|\s(?:y|e|&)\s.+?)?,\s({_ANIO})")
+# Autores corporativos de varias palabras en mayúscula: (React Native, 2026), (MDN Web Docs, 2026).
+_AUTOR_CITA = rf"{_APELLIDO}(?:\s[A-ZÁÉÍÓÚÑÜ][\wÁÉÍÓÚÑÜáéíóúñü'’-]*)*"
+_PARTE_CITA = re.compile(rf"^(?:véase\s|ver\s|cf\.\s)?({_AUTOR_CITA})(?:\set\sal\.|\s(?:y|e|&)\s.+?)?,\s({_ANIO})")
 _PALABRAS_VACIAS = set(
     "para como sobre entre desde hasta donde cuando cada todo toda todos todas este esta estos "
     "estas ese esa con sin por los las del una uno unos unas que sus otro otra mediante "
@@ -307,6 +316,8 @@ class Informe:
     errores: list = field(default_factory=list)
     avisos: list = field(default_factory=list)
     analisis: Analisis | None = None
+    paginas: int | None = None
+    paginas_max: int | None = None
 
     @property
     def ok(self) -> bool:
@@ -327,9 +338,23 @@ def buscar_docx(carpeta: Path) -> Path | None:
     return max(propios or candidatos, key=lambda p: p.stat().st_mtime)
 
 
+def contar_paginas(pdf: Path) -> int | None:
+    """Páginas de un PDF con pdfinfo; sin él, contando objetos /Page. None si no se sabe."""
+    pdfinfo = shutil.which("pdfinfo")
+    if pdfinfo:
+        r = subprocess.run([pdfinfo, str(pdf)], capture_output=True, text=True)
+        m = re.search(r"^Pages:\s+(\d+)", r.stdout, re.M)
+        if r.returncode == 0 and m:
+            return int(m[1])
+    # Reserva: falla con flujos de objetos comprimidos (devuelve 0 → None).
+    n = len(re.findall(rb"/Type\s*/Page(?![a-zA-Z])", Path(pdf).read_bytes()))
+    return n or None
+
+
 def _coincide(apellido: str, anio: str, referencia: str) -> bool:
     """¿La entrada de referencias empieza por ese autor y lleva ese año?"""
-    entrada = rub.normalizar(referencia.lstrip("*"))
+    # La cita llega sin espacios («s.f.»); en la referencia APA se escribe «s. f.».
+    entrada = re.sub(r"s\.\s+f\.", "s.f.", rub.normalizar(referencia.lstrip("*")))
     return (entrada.startswith(rub.normalizar(apellido))
             and re.search(r"\(" + re.escape(anio.lower()), entrada) is not None)
 
@@ -411,10 +436,37 @@ def comprobar(carpeta: Path, docx: Path | None = None, hoy: datetime.date | None
     if pdf.exists() and pdf.stat().st_mtime + 1 < docx.stat().st_mtime:
         inf.avisos.append("El .pdf es más antiguo que el .docx: vuelve a convertirlo.")
 
+    _limites(inf, tarea, a, pdf)
+
     hoy = hoy or datetime.date.today()
     if tarea.fecha and tarea.fecha < hoy and tarea.estado == "pendiente":
         inf.avisos.append(f"La fecha de entrega ({tarea.fecha}) ya pasó y la tarea sigue pendiente.")
     return inf
+
+
+def _limites(inf: Informe, tarea: ficha.Tarea, a: Analisis, pdf: Path) -> None:
+    """Páginas del PDF y referencias mínimas según las preferencias."""
+    try:
+        prefs = config.preferencias()
+        clave = ficha.profundidad(tarea, prefs)
+    except config.ConfigError as e:
+        inf.errores.append(f"Configuración: {e}")
+        return
+    if clave and a.hay_seccion_referencias:
+        perfil = config.PROFUNDIDADES[clave]
+        if len(a.referencias) < perfil.referencias_min:
+            inf.avisos.append(f"Profundidad {perfil.nombre}: {len(a.referencias)} referencias, "
+                              f"se esperan al menos {perfil.referencias_min}.")
+    limite, origen = ficha.paginas_max(tarea, prefs)
+    if not limite or not pdf.exists() or pdf.stat().st_mtime + 1 < inf.docx.stat().st_mtime:
+        return  # sin límite, o PDF ausente o desactualizado (ya hay aviso)
+    inf.paginas = contar_paginas(pdf)
+    inf.paginas_max = limite
+    if inf.paginas is None:
+        inf.avisos.append(f"No se pudieron contar las páginas del PDF (límite {limite}).")
+    elif inf.paginas > limite:
+        inf.errores.append(f"El PDF tiene {inf.paginas} páginas y el límite es {limite} ({origen}); "
+                           "recorta el contenido o fija otra extensión en TAREA.md.")
 
 
 def formato_puntaje(c: rub.Criterio) -> str:
@@ -438,6 +490,8 @@ def imprimir(inf: Informe, carpeta: Path) -> None:
         a = inf.analisis
         print(f"  Cuerpo: {a.palabras_cuerpo} palabras, {len(a.secciones)} secciones, "
               f"{len(a.citas)} citas, {len(a.referencias)} referencias")
+    if inf.paginas is not None:
+        print(f"  PDF: {inf.paginas} páginas (límite {inf.paginas_max})")
     if inf.coberturas:
         print("\n  Rúbrica")
         ancho = max(len(c.criterio.id) for c in inf.coberturas)

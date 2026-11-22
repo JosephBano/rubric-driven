@@ -49,25 +49,32 @@ Cuando el usuario pida "haz la tarea materias/<materia>/<carpeta>" (o similar):
    - si está en PDF o imagen: copiar cada criterio con su puntaje a la tabla;
    - si no hay rúbrica ni criterios, **preguntar** antes de generar.
    `tareas rubrica <tarea>` la muestra con el peso de cada criterio.
-4. Formato: lo que diga `TAREA.md` > README de la materia > README de la raíz.
+4. Extensión y profundidad: campos **Extensión** y **Profundidad** de `TAREA.md` >
+   enunciado/rúbrica > `PROFUNDIDAD` y `PAGINAS_MAX_TAREA`/`PAGINAS_MAX_PROYECTO`
+   del `.env`. El esqueleto ya las aplica y las anota como comentarios al
+   principio del bloque de secciones: respetarlas, con un documento proporcionado
+   al `NIVEL_ACADEMICO`, sin relleno ni más elementos de los pedidos (si piden 8
+   casos, no hacer 15). Si el PDF pasa del límite, `generar` da `[error]`: recortar
+   y regenerar. Al delegar en subagentes, pasarles estos límites.
+5. Formato: lo que diga `TAREA.md` > README de la materia > README de la raíz.
    - "por defecto" → APA 7 con `_plantillas/apa_docx.py`.
    - Práctica/experimental sin formato indicado → **preguntar antes de generar**.
-5. Si falta algo que solo el usuario puede aportar (capturas de su equipo, datos
+6. Si falta algo que solo el usuario puede aportar (capturas de su equipo, datos
    personales, una decisión de enfoque), preguntar en vez de inventarlo.
-6. `tareas esqueleto <tarea>`: escribe en `generar_documento.py` una sección por
+7. `tareas esqueleto <tarea>`: escribe en `generar_documento.py` una sección por
    criterio con su extensión orientativa. Escribir el contenido en esas
    secciones **sin quitar `criterios="..."`** de los `titulo(...)`, ni
    `transversal(...)`, ni `criterios=` de `referencias(...)`: son lo que la
    comprobación usa. Si se añade una sección para un criterio, marcarla igual.
    Citar con `bib.cita("clave")` / `bib.cita_narrativa("clave")` tras
    `bib.agregar(...)`; nunca escribir citas a mano sin su referencia.
-7. `tareas generar <tarea>`: genera el `.docx`, lo comprueba contra la rúbrica,
-   rellena "Dónde se cumple" en `TAREA.md` y genera el PDF. **Corregir todos
+8. `tareas generar <tarea>`: genera el `.docx` y el PDF, los comprueba contra la
+   rúbrica y el límite de páginas, y rellena "Dónde se cumple" en `TAREA.md`. **Corregir todos
    los `[error]`** y revisar los `[aviso]` (secciones poco desarrolladas según
    su peso, extensión, referencias sin citar). Si algún criterio no se puede
    cubrir (p. ej. faltan capturas que solo el usuario puede hacer), decírselo
    al usuario; no rellenarlo con contenido inventado.
-8. Al terminar: `tareas marcar <tarea> lista` (actualiza `TAREA.md` y la tabla
+9. Al terminar: `tareas marcar <tarea> lista` (actualiza `TAREA.md` y la tabla
    del README de la materia). Solo usar `--forzar` si el usuario lo pide.
 
 ## Recordatorios
