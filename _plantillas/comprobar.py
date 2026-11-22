@@ -23,13 +23,17 @@ import rubrica as rub
 
 TITULOS_REFERENCIAS = {"referencias", "referencias bibliograficas", "bibliografia", "references"}
 _ANEXO = re.compile(r"^(anexo|apendice|apéndice|appendix)", re.I)
-_PENDIENTE = re.compile(r"\[FALTA[^\]]*\]|\[COMPLETAR[^\]]*\]|\bTODO\b|\bPENDIENTE\b|lorem ipsum", re.I)
+# Marcadores de contenido sin rellenar. TODO y PENDIENTE solo en mayúsculas: en minúscula son
+# palabras normales del texto (p. ej. el estado «Pendiente» de una tarea).
+_PENDIENTE = re.compile(r"(?i:\[FALTA[^\]]*\]|\[COMPLETAR[^\]]*\]|lorem ipsum)|\bTODO\b|\bPENDIENTE\b")
 _PALABRA = re.compile(r"\w+(?:[-'’]\w+)*")
 _ANIO = r"(?:(?:1[89]|20)\d{2}[a-z]?|s\.\s?f\.)"
 _APELLIDO = r"[A-ZÁÉÍÓÚÑÜ][\wÁÉÍÓÚÑÜáéíóúñü'’-]+(?:\s(?:de|del|van|von|la)\s[A-ZÁÉÍÓÚÑ][\wáéíóúñ'’-]+)?"
 _CITA_NARRATIVA = re.compile(rf"({_APELLIDO})(?:\set\sal\.|\s(?:y|e|&)\s{_APELLIDO})?\s\(({_ANIO})")
 _PARENTESIS = re.compile(r"\(([^()]+)\)")
-_PARTE_CITA = re.compile(rf"^(?:véase\s|ver\s|cf\.\s)?({_APELLIDO})(?:\set\sal\.|\s(?:y|e|&)\s.+?)?,\s({_ANIO})")
+# Autores corporativos de varias palabras en mayúscula: (React Native, 2026), (MDN Web Docs, 2026).
+_AUTOR_CITA = rf"{_APELLIDO}(?:\s[A-ZÁÉÍÓÚÑÜ][\wÁÉÍÓÚÑÜáéíóúñü'’-]*)*"
+_PARTE_CITA = re.compile(rf"^(?:véase\s|ver\s|cf\.\s)?({_AUTOR_CITA})(?:\set\sal\.|\s(?:y|e|&)\s.+?)?,\s({_ANIO})")
 _PALABRAS_VACIAS = set(
     "para como sobre entre desde hasta donde cuando cada todo toda todos todas este esta estos "
     "estas ese esa con sin por los las del una uno unos unas que sus otro otra mediante "

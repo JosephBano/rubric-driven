@@ -165,6 +165,20 @@ class TestCitasEnTexto(unittest.TestCase):
                          [("Lee", "2021"), ("Ministerio de Educación", "s.f."),
                           ("Oracle", "2024"), ("Ramos", "2023")])
 
+    def test_autor_corporativo_de_varias_palabras(self):
+        texto = "fetch funciona igual (React Native, 2026) y ok lo indica (MDN Web Docs, 2026)."
+        self.assertEqual(sorted(set(comp._citas(texto))),
+                         [("MDN Web Docs", "2026"), ("React Native", "2026")])
+        self.assertTrue(comp._coincide("React Native", "2026",
+                                       "React Native. (2026). *Networking*."))
+
+    def test_pendiente_solo_como_marcador(self):
+        self.assertTrue(comp._PENDIENTE.search("Sección PENDIENTE de redactar"))
+        self.assertTrue(comp._PENDIENTE.search("TODO: añadir figura"))
+        self.assertTrue(comp._PENDIENTE.search("[falta captura]"))
+        self.assertIsNone(comp._PENDIENTE.search("La tarjeta pasa de Pendiente a Completada."))
+        self.assertIsNone(comp._PENDIENTE.search("Queda pendiente para el Avance 3."))
+
     def test_coincide(self):
         self.assertTrue(comp._coincide("Ramos", "2023", "Ramos, J. y Pérez, A. (2023). *X*."))
         self.assertFalse(comp._coincide("Ramos", "2022", "Ramos, J. (2023). X."))
