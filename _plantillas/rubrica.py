@@ -33,7 +33,9 @@ _TRANSVERSAL = re.compile(
 )
 # Etiqueta al final del criterio que fuerza el tipo: "Calidad del texto (transversal)".
 _ETIQUETA = re.compile(r"\s*\((transversal|contenido)\)\s*$", re.I)
-_REFERENCIAS = re.compile(r"referencia|bibliograf|\bcita|fuentes", re.I)
+# Criterios sobre la bibliografía. «Referencia a COBIT/ISACA» o «referencias al marco» hablan
+# de contenido (aludir a un marco), no de la lista de referencias: se excluyen.
+_REFERENCIAS = re.compile(r"referencias?\b(?!\s+al?\s)|bibliograf|\bcita|fuentes", re.I)
 
 
 @dataclass
@@ -45,7 +47,9 @@ class Criterio:
 
     @property
     def de_referencias(self) -> bool:
-        return bool(_REFERENCIAS.search(self.texto))
+        if self.etiqueta == "contenido":
+            return False
+        return bool(_REFERENCIAS.search(self.nombre))
 
     @property
     def etiqueta(self) -> str | None:
