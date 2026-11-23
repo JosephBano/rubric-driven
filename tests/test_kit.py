@@ -68,6 +68,14 @@ class TestRubrica(unittest.TestCase):
         self.assertTrue(c.de_referencias)
         self.assertFalse(c.transversal)
 
+    def test_referencia_a_un_marco_es_contenido(self):
+        for texto in ("Controles y acciones: priorización y referencia a COBIT/ISACA",
+                      "Uso de referencias al marco normativo",
+                      "Citas del autor (contenido)"):
+            self.assertFalse(rub.Criterio("C2", texto).de_referencias, texto)
+        for texto in ("Referencias APA", "Uso de citas y fuentes", "Bibliografía actualizada"):
+            self.assertTrue(rub.Criterio("C4", texto).de_referencias, texto)
+
     def test_criterios_de_contenido_no_son_transversales(self):
         for texto in ("Estilo de programación", "Presentación del problema",
                       "Formato de la tabla de datos", "Coherencia del modelo ER",
@@ -222,6 +230,12 @@ class TestCitasEnTexto(unittest.TestCase):
                          [("MDN Web Docs", "2026"), ("React Native", "2026")])
         self.assertTrue(comp._coincide("React Native", "2026",
                                        "React Native. (2026). *Networking*."))
+
+    def test_autor_corporativo_con_particulas(self):
+        texto = "La ley exige minimización (Asamblea Nacional del Ecuador, 2021) y algo más."
+        self.assertEqual(list(comp._citas(texto)), [("Asamblea Nacional del Ecuador", "2021")])
+        self.assertTrue(comp._coincide("Asamblea Nacional del Ecuador", "2021",
+                                       "Asamblea Nacional del Ecuador. (2021). *Ley Orgánica*."))
 
     def test_pendiente_solo_como_marcador(self):
         self.assertTrue(comp._PENDIENTE.search("Sección PENDIENTE de redactar"))
